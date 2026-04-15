@@ -1,0 +1,122 @@
+import Mathlib.Tactic
+import Mathlib.Geometry.Manifold.ChartedSpace
+import Mathlib.Analysis.SpecialFunctions.Trigonometric.Arctan
+
+/-!
+The main result of this file is `real_charts`, which takes a cover of a 1-manifold
+by charts that are homeomorphisms onto open subsets of ℝ and provides one where
+the homeomorphisms are onto all of ℝ.
+-/
+
+open Set Function Manifold
+set_option linter.style.emptyLine false
+
+local macro:max "ℝ"n:superscript(term) : term => `(EuclideanSpace ℝ (Fin $(⟨n.raw[0]⟩)))
+
+/- Let M be a compact connected topological 1-dimensional manifold. -/
+variable (M : Type*) [TopologicalSpace M] [ChartedSpace ℝ¹ M]
+
+namespace OpenIntervalHomeomorphReal
+
+private lemma hIoo_shift (a b : ℝ) {hab : a < b} (t : Ioo a b) :
+    (t - a) / (b - a) ∈ Ioo (0 : ℝ) 1 := by
+  obtain ⟨x,⟨hx1,hx2⟩⟩ := t
+  have habpos : b - a > 0 := by exact sub_pos.mpr hab
+  constructor
+  · exact div_pos (sub_pos.mpr hx1) habpos
+  · exact (div_lt_one₀ habpos).mpr <| sub_lt_sub_right hx2 a
+
+private lemma hIoo_shift' (a b : ℝ) {hab : a < b} (t : Ioo (0 : ℝ) 1) :
+    (b - a) * t + a ∈ Ioo a b := by
+  obtain ⟨x,⟨hx1,hx2⟩⟩ := t
+  have habpos : b - a > 0 := by exact sub_pos.mpr hab
+  constructor
+  · exact lt_add_of_pos_left a <| mul_pos habpos hx1
+  · exact lt_tsub_iff_right.mp <| mul_lt_of_lt_one_right habpos hx2
+
+private noncomputable def homeomorph_Ioo_Ioo_unit (a b : ℝ) {hab : a < b} :
+    Homeomorph (Ioo a b) (Ioo (0 : ℝ) 1) := {
+  toFun : Ioo a b → Ioo (0 : ℝ) 1 := fun t ↦ ⟨(t - a) / (b - a), hIoo_shift a b t⟩,
+  invFun : Ioo (0 : ℝ) 1 → Ioo a b := fun t ↦ ⟨(b - a) * t + a, hIoo_shift' a b t⟩,
+  left_inv := by
+    intro x
+    apply Subtype.mk_eq_mk.mpr
+    · simp only [mul_div_cancel₀ (x - a) <| Ne.symm <| ne_of_lt <| sub_pos.mpr hab, sub_add_cancel]
+    · exact fun _ ↦ hab
+    · exact fun _ ↦ hab,
+  right_inv := by
+    intro x
+    apply Subtype.mk_eq_mk.mpr
+    simp only [add_sub_cancel_right]
+    apply mul_div_cancel_left₀
+    exact Ne.symm <| ne_of_lt <| sub_pos.mpr hab,
+  continuous_toFun := by fun_prop,
+  continuous_invFun := by fun_prop
+}
+
+private noncomputable def homeomorph_tan_real : Homeomorph (Ioo (-(Real.pi / 2)) (Real.pi / 2)) ℝ :=
+  Real.tanPartialHomeomorph.toHomeomorphSourceTarget.trans <| Homeomorph.Set.univ ℝ
+
+/-- Every bounded open interval in ℝ is homeomorphic to ℝ itself. -/
+noncomputable def homeomorph_open_real (a b : ℝ) {hab : a < b} : (Ioo a b) ≃ₜ ℝ := by
+  let f : (Ioo a b) ≃ₜ (Ioo (0 : ℝ) 1) := homeomorph_Ioo_Ioo_unit a b (hab := hab)
+  have : -(Real.pi / 2) < (Real.pi / 2) := by
+    simp only [neg_lt_self_iff, Nat.ofNat_pos, div_pos_iff_of_pos_right]
+    exact Real.pi_pos
+  let g : (Ioo (0 : ℝ) 1) ≃ₜ (Ioo (-(Real.pi / 2)) (Real.pi / 2)) :=
+    (homeomorph_Ioo_Ioo_unit (-(Real.pi / 2)) (Real.pi / 2) (hab := this)).symm
+  exact f.trans (g.trans homeomorph_tan_real)
+
+end OpenIntervalHomeomorphReal
+
+private class RealChart (p : M) where
+  U : Set M
+  contains_x : p ∈ U
+  isOpen : IsOpen U
+  chartAt : U ≃ₜ ℝ
+
+/-- Every point of a 1-manifold M has an open neighborhood homeomorphic to ℝ. -/
+private lemma chart_homeo_real (x : M) : Nonempty (RealChart M x) := by
+  let φ : ℝ¹ ≃ₜ ℝ := (PiLp.homeomorph 2 (fun (_ : Fin 1) => ℝ)).trans
+                    <| Homeomorph.funUnique (Fin 1) ℝ
+  let ψ := (chartAt ℝ¹ x).transHomeomorph φ
+  let U : Set M := ψ.source
+  let V : Set ℝ := ψ.target
+  let y : ℝ := ψ x
+  have hxψ : x ∈ ψ.source := by
+    simp_all only [(chartAt ℝ¹ x).transHomeomorph_source, mem_chart_source, ψ]
+
+  have : ∃ (a : ℝ) (b : ℝ), a < b ∧ y ∈ (Ioo a b) ∧ (Ioo a b) ⊆ V := by
+    have hyV : y ∈ V := by exact ψ.map_source hxψ
+    obtain ⟨W,hW,_⟩ := (Real.isTopologicalBasis_Ioo_rat).exists_subset_of_mem_open
+                       hyV ψ.open_target
+    obtain ⟨abSet,⟨a,ha⟩,hWabSet⟩ := hW
+    subst ha
+    obtain ⟨bSet,⟨⟨b,hb⟩,_⟩⟩ := hWabSet
+    subst hb
+    use a, b
+    simp_all only [mem_iUnion, mem_singleton_iff, exists_prop, Rat.cast_lt, and_self]
+
+  obtain ⟨a,b,hab,hyab,habV⟩ := this
+  let U' := ψ.symm '' (Ioo a b)
+  have f : U' ≃ₜ (Ioo a b) := by
+    apply ψ.homeomorphOfImageSubsetSource
+    · exact MapsTo.image_subset <| fun _ p ↦ ψ.symm_mapsTo (habV p)
+    · exact LeftInvOn.image_image <| fun _ ht => ψ.right_inv (habV ht)
+
+  let chart : RealChart M x := {
+    U : Set M := U',
+    contains_x : x ∈ U' := by
+      apply (mem_image ψ.symm (Ioo a b) x).mpr
+      use y
+      exact ⟨hyab, ψ.left_inv hxψ⟩,
+    isOpen : IsOpen U' := ψ.isOpen_image_symm_of_subset_target isOpen_Ioo habV,
+    chartAt := f.trans <| OpenIntervalHomeomorphReal.homeomorph_open_real a b (hab := hab)
+  }
+  exact Nonempty.intro chart
+
+/-- Package the homeomorphisms to ℝ at each point into a function -/
+lemma real_charts : ∃ U : M → Set M, ∀ x : M, x ∈ (U x) ∧ IsOpen (U x) ∧ Nonempty ((U x) ≃ₜ ℝ):= by
+  let f := fun p => (chart_homeo_real M p).some
+  use fun p => (f p).U
+  exact fun x => ⟨(f x).contains_x, (f x).isOpen, Nonempty.intro (f x).chartAt⟩

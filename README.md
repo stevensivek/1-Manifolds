@@ -1,13 +1,6 @@
-# 1-Manifolds
+# Formalization of the Topological Classification of 1-Manifolds
 
-## GitHub configuration
+This project formalizes the topological classification of closed, connected 1-manifolds in the [Lean Theorem Prover](https://lean-lang.org/).  The main theorem is that any compact, connected Hausdorff space equipped with an atlas of charts to $\mathbb{R}^1$ is homeomorphic to a circle.
 
-To set up your new GitHub repository, follow these steps:
-
-* Under your repository name, click **Settings**.
-* In the **Actions** section of the sidebar, click "General".
-* Check the box **Allow GitHub Actions to create and approve pull requests**.
-* Click the **Pages** section of the settings sidebar.
-* In the **Source** dropdown menu, select "GitHub Actions".
-
-After following the steps above, you can remove this section from the README file.
+The proof is based on the argument in Chapter 3, Section 1, Theorem 17 of Fuks and Rokhlin's book "Beginner's Course in Topology", and builds on
+Jeff Lee's [MSc project repository](https://github.com/jeffimp/Classification-of-Curves).
