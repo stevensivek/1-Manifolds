@@ -1,12 +1,28 @@
 import Mathlib.Tactic
 import Mathlib.Geometry.Manifold.Instances.Real
+import «OneManifold».Disconnected
 import «OneManifold».RealOrCircle
+
+/-!
+This file contains several theorems about the classification of 1-manifolds.
+A 1-manifold is a second-countable Hausdorff space covered by charts to ℝ¹.
+(If it is compact then we can omit the second-countable hypothesis.)
+
+## Main results
+
+- `circle_homeomorph_of_closed_one_manifold` : A compact, connected 1-manifold
+  is homeomorphic to a circle.
+
+- `sigma_circle_homeomorph` : If `M` is a compact 1-manifold, then there is
+  some `n ∈ ℕ` such that `M` is homeomorphic to a disjoint union
+  `(_ : Fin n) × Circle` of circles.
+-/
 
 local macro:max "ℝ"n:superscript(term) : term => `(EuclideanSpace ℝ (Fin $(⟨n.raw[0]⟩)))
 
 open Set Topology Function
 
-/- A connected, compact, Hausdorff space covered by charts to ℝ (i.e., a
+/- A connected, compact, Hausdorff space covered by charts to ℝ¹ (i.e., a
    closed, connected 1-manifold) is homeomorphic to a circle. -/
 theorem circle_homeomorph_of_closed_one_manifold (M : Type*) [TopologicalSpace M]
     [T2Space M] [ConnectedSpace M] [CompactSpace M] [ChartedSpace ℝ¹ M] :
@@ -56,19 +72,18 @@ lemma circle_homeomorph_preimage_connectedComponents (M : Type*) [TopologicalSpa
   rw [← hx, connectedComponents_preimage_singleton]
   exact circle_homeomorph_component_of_compact M x
 
-theorem circle_union_homeomorph (M : Type*) [TopologicalSpace M]
+/- A compact Hausdorff space covered by charts to ℝ¹ is homeomorphic to a
+   disjoint union of finitely many circles. -/
+theorem sigma_circle_homeomorph (M : Type*) [TopologicalSpace M]
     [T2Space M] [CompactSpace M] [ChartedSpace ℝ¹ M] :
-    ∃ n : ℕ, Nonempty (M ≃ₜ Σ (_ : Fin n), Circle) := by
+    ∃ n : ℕ, Nonempty (M ≃ₜ (_ : Fin n) × Circle) := by
   haveI : LocallyConnectedSpace M := ChartedSpace.locallyConnectedSpace ℝ¹ M
   obtain ⟨n, hn⟩ := finite_iff_exists_equiv_fin.mp <|
     instFiniteConnectedComponentsOfLocallyConnectedSpaceOfCompactSpace (α := M)
   use n
   let α : ConnectedComponents M ≃ Fin n := hn.some
-  have hCCDiscrete : DiscreteTopology (ConnectedComponents M) :=
-    ConnectedComponents.discreteTopology_iff.mpr <| fun _ ↦ isOpen_connectedComponent
-
-  have f₁ : M ≃ₜ Σ (c : ConnectedComponents M), ConnectedComponents.mk ⁻¹' {c} := by
-    sorry
+  have f₁ : M ≃ₜ Σ (c : ConnectedComponents M), ConnectedComponents.mk ⁻¹' {c} :=
+    (homeomorph_sigma_components M).some
   have f₂ : (Σ (c : ConnectedComponents M), (ConnectedComponents.mk ⁻¹' {c}))
       ≃ₜ Σ (_ : Fin n), Circle := by
     let β := fun (c : ConnectedComponents M) ↦ (ConnectedComponents.mk ⁻¹' {c})

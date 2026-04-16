@@ -1,3 +1,4 @@
+import «OneManifold».Disconnected
 import «OneManifold».GlueCircle
 import «OneManifold».GlueReal
 import «OneManifold».Main
