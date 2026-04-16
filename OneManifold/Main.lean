@@ -64,15 +64,15 @@ theorem circle_union_homeomorph (M : Type*) [TopologicalSpace M]
     instFiniteConnectedComponentsOfLocallyConnectedSpaceOfCompactSpace (α := M)
   use n
   let α : ConnectedComponents M ≃ Fin n := hn.some
-  have : DiscreteTopology (ConnectedComponents M) :=
+  have hCCDiscrete : DiscreteTopology (ConnectedComponents M) :=
     ConnectedComponents.discreteTopology_iff.mpr <| fun _ ↦ isOpen_connectedComponent
-  have f₁ : M ≃ₜ Σ (c : ConnectedComponents M), (ConnectedComponents.mk ⁻¹' {c}) := by
+
+  have f₁ : M ≃ₜ Σ (c : ConnectedComponents M), ConnectedComponents.mk ⁻¹' {c} := by
     sorry
   have f₂ : (Σ (c : ConnectedComponents M), (ConnectedComponents.mk ⁻¹' {c}))
       ≃ₜ Σ (_ : Fin n), Circle := by
-    let β₁ := fun (c : ConnectedComponents M) ↦ (ConnectedComponents.mk ⁻¹' {c})
-    let β₂ := fun (_ : Fin n) ↦ Circle
-    let φ : (c : ConnectedComponents M) → (β₁ c ≃ₜ β₂ (α c)) :=
+    let β := fun (c : ConnectedComponents M) ↦ (ConnectedComponents.mk ⁻¹' {c})
+    let φ : (c : ConnectedComponents M) → (β c ≃ₜ Circle) :=
       fun c ↦ (circle_homeomorph_preimage_connectedComponents M c).some
     exact (IsHomeomorph.sigmaMap α.bijective <| fun c ↦ (φ c).isHomeomorph).homeomorph
   exact Nonempty.intro (f₁.trans f₂)
