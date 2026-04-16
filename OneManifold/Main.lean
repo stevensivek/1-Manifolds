@@ -4,7 +4,7 @@ import «OneManifold».RealOrCircle
 
 local macro:max "ℝ"n:superscript(term) : term => `(EuclideanSpace ℝ (Fin $(⟨n.raw[0]⟩)))
 
-open Set Topology Manifold
+open Set Topology Function
 
 /- A connected, compact, Hausdorff space covered by charts to ℝ (i.e., a
    closed, connected 1-manifold) is homeomorphic to a circle. -/
@@ -36,7 +36,7 @@ lemma circle_homeomorph_of_compact_component (M : Type*) [TopologicalSpace M]
   haveI : CompactSpace (connectedComponent x) := isCompact_iff_compactSpace.mp hx
   haveI : ChartedSpace ℝ¹ (connectedComponent x) := by
     refine TopologicalSpace.Opens.instChartedSpace ⟨connectedComponent x, ?_⟩
-    haveI : LocallyConnectedSpace M := by exact ChartedSpace.locallyConnectedSpace ℝ¹ M
+    haveI : LocallyConnectedSpace M := ChartedSpace.locallyConnectedSpace ℝ¹ M
     exact isOpen_connectedComponent
   exact circle_homeomorph_of_closed_one_manifold (connectedComponent x)
 
@@ -46,3 +46,33 @@ lemma circle_homeomorph_component_of_compact (M : Type*) [TopologicalSpace M]
     ∀ x : M, Nonempty (connectedComponent x ≃ₜ Circle) := by
   exact fun x => circle_homeomorph_of_compact_component M x
                  isClosed_connectedComponent.isCompact
+
+lemma circle_homeomorph_preimage_connectedComponents (M : Type*) [TopologicalSpace M]
+    [T2Space M] [CompactSpace M] [ChartedSpace ℝ¹ M] :
+    ∀ c : ConnectedComponents M,
+      Nonempty ((ConnectedComponents.mk) ⁻¹' {c} ≃ₜ Circle) := by
+  intro c
+  obtain ⟨x, hx⟩ := ConnectedComponents.surjective_coe c
+  rw [← hx, connectedComponents_preimage_singleton]
+  exact circle_homeomorph_component_of_compact M x
+
+theorem circle_union_homeomorph (M : Type*) [TopologicalSpace M]
+    [T2Space M] [CompactSpace M] [ChartedSpace ℝ¹ M] :
+    ∃ n : ℕ, Nonempty (M ≃ₜ Σ (_ : Fin n), Circle) := by
+  haveI : LocallyConnectedSpace M := ChartedSpace.locallyConnectedSpace ℝ¹ M
+  obtain ⟨n, hn⟩ := finite_iff_exists_equiv_fin.mp <|
+    instFiniteConnectedComponentsOfLocallyConnectedSpaceOfCompactSpace (α := M)
+  use n
+  let α : ConnectedComponents M ≃ Fin n := hn.some
+  have : DiscreteTopology (ConnectedComponents M) :=
+    ConnectedComponents.discreteTopology_iff.mpr <| fun _ ↦ isOpen_connectedComponent
+  have f₁ : M ≃ₜ Σ (c : ConnectedComponents M), (ConnectedComponents.mk ⁻¹' {c}) := by
+    sorry
+  have f₂ : (Σ (c : ConnectedComponents M), (ConnectedComponents.mk ⁻¹' {c}))
+      ≃ₜ Σ (_ : Fin n), Circle := by
+    let β₁ := fun (c : ConnectedComponents M) ↦ (ConnectedComponents.mk ⁻¹' {c})
+    let β₂ := fun (_ : Fin n) ↦ Circle
+    let φ : (c : ConnectedComponents M) → (β₁ c ≃ₜ β₂ (α c)) :=
+      fun c ↦ (circle_homeomorph_preimage_connectedComponents M c).some
+    exact (IsHomeomorph.sigmaMap α.bijective <| fun c ↦ (φ c).isHomeomorph).homeomorph
+  exact Nonempty.intro (f₁.trans f₂)
