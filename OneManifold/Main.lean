@@ -1,5 +1,6 @@
 import Mathlib.Tactic
 import Mathlib.Geometry.Manifold.Instances.Real
+import Mathlib.Topology.Connected.TotallyDisconnected
 import «OneManifold».Disconnected
 import «OneManifold».RealOrCircle
 
@@ -14,7 +15,7 @@ A 1-manifold is a second-countable Hausdorff space covered by charts to ℝ¹.
   is homeomorphic to a circle.
 
 - `sigma_circle_homeomorph` : If `M` is a compact 1-manifold, then there is
-  some `n ∈ ℕ` such that `M` is homeomorphic to a disjoint union
+  a unique `n ∈ ℕ` such that `M` is homeomorphic to a disjoint union
   `(_ : Fin n) × Circle` of circles.
 -/
 
@@ -73,21 +74,27 @@ lemma circle_homeomorph_preimage_connectedComponents (M : Type*) [TopologicalSpa
   exact circle_homeomorph_component_of_compact M x
 
 /- A compact Hausdorff space covered by charts to ℝ¹ is homeomorphic to a
-   disjoint union of finitely many circles. -/
+   disjoint union of `n` circles, for exactly one value of `n ∈ ℕ`. -/
 theorem sigma_circle_homeomorph (M : Type*) [TopologicalSpace M]
     [T2Space M] [CompactSpace M] [ChartedSpace ℝ¹ M] :
-    ∃ n : ℕ, Nonempty (M ≃ₜ (_ : Fin n) × Circle) := by
+    ∃! n : ℕ, Nonempty (M ≃ₜ (_ : Fin n) × Circle) := by
   haveI : LocallyConnectedSpace M := ChartedSpace.locallyConnectedSpace ℝ¹ M
-  obtain ⟨n, hn⟩ := finite_iff_exists_equiv_fin.mp <|
-    instFiniteConnectedComponentsOfLocallyConnectedSpaceOfCompactSpace (α := M)
-  use n
-  let α : ConnectedComponents M ≃ Fin n := hn.some
-  have f₁ : M ≃ₜ Σ (c : ConnectedComponents M), ConnectedComponents.mk ⁻¹' {c} :=
-    (homeomorph_sigma_components M).some
-  have f₂ : (Σ (c : ConnectedComponents M), (ConnectedComponents.mk ⁻¹' {c}))
-      ≃ₜ Σ (_ : Fin n), Circle := by
-    let β := fun (c : ConnectedComponents M) ↦ (ConnectedComponents.mk ⁻¹' {c})
-    let φ : (c : ConnectedComponents M) → (β c ≃ₜ Circle) :=
-      fun c ↦ (circle_homeomorph_preimage_connectedComponents M c).some
-    exact (IsHomeomorph.sigmaMap α.bijective <| fun c ↦ (φ c).isHomeomorph).homeomorph
-  exact Nonempty.intro (f₁.trans f₂)
+  apply existsUnique_of_exists_of_unique
+  · obtain ⟨n, hn⟩ := finite_iff_exists_equiv_fin.mp <|
+      instFiniteConnectedComponentsOfLocallyConnectedSpaceOfCompactSpace (α := M)
+    use n
+    let α : ConnectedComponents M ≃ Fin n := hn.some
+    have f₁ : M ≃ₜ Σ (c : ConnectedComponents M), ConnectedComponents.mk ⁻¹' {c} :=
+      (homeomorph_sigma_components M).some
+    have f₂ : (Σ (c : ConnectedComponents M), (ConnectedComponents.mk ⁻¹' {c}))
+        ≃ₜ Σ (_ : Fin n), Circle := by
+      let β := fun (c : ConnectedComponents M) ↦ (ConnectedComponents.mk ⁻¹' {c})
+      let φ : (c : ConnectedComponents M) → (β c ≃ₜ Circle) :=
+        fun c ↦ (circle_homeomorph_preimage_connectedComponents M c).some
+      exact (IsHomeomorph.sigmaMap α.bijective <| fun c ↦ (φ c).isHomeomorph).homeomorph
+    exact Nonempty.intro (f₁.trans f₂)
+  · intro m n hm hn
+    let φ : (_ : Fin m) × Circle ≃ₜ (_ : Fin n) × Circle := hm.some.symm.trans hn.some
+    rw [← card_fin_product Circle m, ← card_fin_product Circle n]
+    exact Nat.card_eq_of_bijective φ.continuous.connectedComponentsMap
+          φ.connectedComponentsMap_bijective
