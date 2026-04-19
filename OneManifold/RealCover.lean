@@ -116,7 +116,8 @@ private lemma chart_homeo_real (x : M) : Nonempty (RealChart M x) := by
   exact Nonempty.intro chart
 
 /-- Package the homeomorphisms to ℝ at each point into a function -/
-lemma real_charts : ∃ U : M → Set M, ∀ x : M, x ∈ (U x) ∧ IsOpen (U x) ∧ Nonempty ((U x) ≃ₜ ℝ):= by
+lemma real_charts : ∃ U : M → Set M, ∀ x : M,
+    x ∈ (U x) ∧ IsOpen (U x) ∧ Nonempty ((U x) ≃ₜ ℝ) := by
   let f := fun p => (chart_homeo_real M p).some
   use fun p => (f p).U
   exact fun x => ⟨(f x).contains_x, (f x).isOpen, Nonempty.intro (f x).chartAt⟩
