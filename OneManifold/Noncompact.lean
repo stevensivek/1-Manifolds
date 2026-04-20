@@ -89,6 +89,8 @@ lemma disjoint_union_of_opens {X : Type*} [TopologicalSpace X]
           mem_preimage.mp <| mem_of_mem_image_val hxi]
   refine ⟨S, hcOpen, hcConn, hDisjoint, hUnion⟩
 
+/- A 1-manifold M admits an open cover by sets homeomorphic to ℝ such that
+   every point x ∈ M belongs to only finitely many elements of the cover. -/
 lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
     (∀ s ∈ C, IsOpen s) ∧ (⋃₀ C = univ) ∧ (∀ x : M, {s ∈ C | x ∈ s}.Finite) ∧
     (∀ s ∈ C, Nonempty (s ≃ₜ ℝ)) := by
@@ -102,6 +104,9 @@ lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
 
   obtain ⟨β, V, hVOpen, hVCover, hVLocallyFinite, hRefinement⟩ :=
     ParacompactSpace.locallyFinite_refinement M U (by exact fun i => (hU i).2.1) hUCover
+  /- Note that this refinement of the open cover U may not be what we want:
+     it's locally finite, but its elements are only homeomorphic to subsets
+     of ℝ (i.e., to subsets of the elements of U) rather than to ℝ itself. -/
 
   have : LocallyConnectedSpace M := ChartedSpace.locallyConnectedSpace ℝ¹ M
   obtain ⟨compVb, hcompVb⟩ := Classical.axiom_of_choice
@@ -196,9 +201,14 @@ lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
   have hCCover : ⋃₀ C = univ := eq_univ_of_subset (fun _ t ↦ t) hWCover
   exact ⟨C, hCProp hWOpen, hCCover, hCFinite, hCProp hWReal⟩
 
+/- A 1-manifold M admits an open cover by sets homeomorphic to ℝ such that
+   (1) every point x ∈ M belongs to at most finitely many sets in the cover;
+   (2) this cover is minimal with respect to inclusion, meaning that every
+       proper subset of the cover is not a cover of M. -/
 lemma minimal_real_cover : ∃ (C : Set (Set M)),
     (∀ s ∈ C, IsOpen s) ∧ (⋃₀ C = univ) ∧ (∀ x : M, {s ∈ C | x ∈ s}.Finite) ∧
-    (∀ s ∈ C, Nonempty (s ≃ₜ ℝ)) := by
+    (∀ s ∈ C, Nonempty (s ≃ₜ ℝ)) ∧
+    (∀ C' ⊂ C, ⋃₀ C' ≠ univ) := by
 
   let PLFCover := fun (C : Set (Set M)) =>
     (∀ s ∈ C, IsOpen s) ∧ (⋃₀ C = univ) ∧ (∀ x : M, {s ∈ C | x ∈ s}.Finite) ∧
@@ -229,7 +239,6 @@ lemma minimal_real_cover : ∃ (C : Set (Set M)),
         rw [← hcsCover] at this
         obtain ⟨s, hscsome, hxs⟩ := mem_sUnion.mpr this
         exact ⟨s, mem_sep hscsome hxs, hxs⟩
-      --have hxFinite : Sx.Finite := hcsFinite x
       have hxFinite' : Finite Sx := finite_coe_iff.mpr <| hcsFinite x
       have hhh : Nonempty Sx := by
         exact Nonempty.intro ⟨mem_Sx, hmem_Sx⟩
@@ -263,33 +272,24 @@ lemma minimal_real_cover : ∃ (C : Set (Set M)),
         rw [h] at hSx_disjoint_ft₀
         exact False.elim <| (hSx_disjoint_ft₀ ⟨mem_Sx, hmem_Sx⟩) (mem_of_mem_inter_left hmem_Sx)
       · -- f t₀ ⊆ csome
-        have h'' : ∀ (s : ↑Sx), ↑s ∉ f t₀ := by
-          exact fun s => (mem_compl_iff (f t₀) ↑s).mp (hSx_disjoint_ft₀ s)
-        --rw [h] at hSx_disjoint_ft₀
-        --exact False.elim <| (hSx_disjoint_ft₀ ⟨mem_Sx, hmem_Sx⟩) (mem_of_mem_inter_left hmem_Sx)
-        sorry
+        have : f t₀ ∈ S := by exact mem_sep_iff.mpr <| hchS (hf t₀).1
+        have : univ ⊆ ⋃₀ (f t₀) := univ_subset_iff.mpr this.2.1
+        have hx_ft₀ : x ∈ ⋃₀ (f t₀) := mem_sUnion.mpr (this hx)
+        have : ∀ s ∈ f t₀, x ∉ s :=
+          fun s hs hxs => (hSx_disjoint_ft₀ <| Subtype.mk s ⟨mem_of_subset_of_mem h hs, hxs⟩) hs
+        have : x ∉ ⋃₀ (f t₀) := by
+          by_contra hx
+          obtain ⟨s, hsf, hxs⟩ := mem_sUnion.mp hx
+          exact (this s hsf) hxs
+        exact this hx_ft₀
       · -- csome ⊆ f t₀
-        sorry
-      -- have hSx_disjoint_α : ∀ s ∈ Sx, s ∉ α := by
-      --   by_contra! h
-      --   obtain ⟨s, hSx, hsα⟩ := h
-      --   have hs_not_mem_ft₀ : s ∉ f t₀ := this ⟨s, hSx⟩
-      --   have : s ∉ α := by
-      --     by_contra hs_mem_α
-      --     haveI : Nonempty (f t₀ ∈ ch) := Nonempty.intro (hf t₀).1
-      --     have := mem_iInter.mp hs_mem_α (f t₀)
-      --     have hI : ⋂ (_ : f t₀ ∈ ch), f t₀ = f t₀ := by
-      --       exact iInter_eq_const <| fun _ => by simp only
-      --     rw [hI] at this
-      --     exact hs_not_mem_ft₀ this
-      --   exact this hsα
-      -- have := hSx_disjoint_α mem_Sx hmem_Sx
-      -- have : ∀ s ∈ f t₀, x ∉ s := by
-      --   intro s hs
-      --   by_cases hx : s ∈ Sx
-      --   · have : s ∈
-      --     exact False.elim <| (hSx_disjoint_α s hx) hs
-      --   · exact fun hxs => (hSx_disjoint_α s ⟨mem_of_subset_of_mem hαSubset hs, hxs⟩) hs
+        obtain ⟨t, htc, hxt⟩ := mem_sUnion.mp <| univ_subset_iff.mpr hcsCover (mem_univ x)
+        have : x ∉ t := by
+          by_cases ht_Sx : t ∈ Sx
+          · exact False.elim <| (hSx_disjoint_ft₀ <| Subtype.mk t ht_Sx)
+                                (mem_of_subset_of_mem h htc)
+          · exact fun hxt => ht_Sx ⟨htc, hxt⟩
+        exact this hxt
     · intro x
       apply Finite.subset (hcsFinite x) <| setOf_subset_setOf_of_imp ?_
       exact fun s => And.imp_left <| fun t ↦ mem_of_subset_of_mem hαSubset t
@@ -297,7 +297,50 @@ lemma minimal_real_cover : ∃ (C : Set (Set M)),
 
   obtain ⟨m, hmC₀, hmMinimal⟩ := zorn_superset_nonempty _ hLB C₀ hPC₀
   have : PLFCover m := hmMinimal.prop
-  -- -- obtain ⟨β, V, hVOpen, hVCover, hVLocallyFinite, hRefinement⟩ :=
-  -- --   ParacompactSpace.locallyFinite_refinement M U (by exact fun i => (hU i).2.1) hUCover
-  -- sorry
-  sorry
+  unfold PLFCover at this
+  obtain ⟨hmOpen, hmCover, hmFinite, hmReal⟩ := hmMinimal.prop
+
+  have hssubset {s : Set (Set M)} : s ⊂ m → ⋃₀ s ≠ univ := by
+    intro hsm
+    have hNotCover : ¬ PLFCover s := MinimalFor.not_prop_of_lt hmMinimal hsm
+    unfold PLFCover at hNotCover
+    push Not at hNotCover
+    have hopen : ∀ Ω ∈ s, IsOpen Ω :=
+      fun Ω hΩ => hmOpen Ω <| mem_of_subset_of_mem (subset_of_ssubset hsm) hΩ
+    have hreal : ¬ ∃ Ω ∈ s, IsEmpty (Ω ≃ₜ ℝ) := by
+      push Not
+      exact fun Ω hΩ => hmReal Ω <| mem_of_subset_of_mem (subset_of_ssubset hsm) hΩ
+    have hfin: ∀ x : M, {Ω | Ω ∈ s ∧ x ∈ Ω}.Finite := by
+      apply fun x => Finite.subset (hmFinite x) ?_
+      exact fun _ ht => ⟨mem_of_subset_of_mem (subset_of_ssubset hsm) ht.1, ht.2⟩
+    by_contra hCover
+    exact hreal <| hNotCover hopen hCover hfin
+
+  use m
+
+/- If a cover of X has no proper subcover, then every set U in the cover
+   contains some point that is in U but not in any other set in the cover. -/
+lemma minimal_cover_choose_points {X : Type*} [TopologicalSpace X]
+    {C : Set (Set X)} (hC : ⋃₀ C = univ) :
+    (∀ C' ⊂ C, ⋃₀ C' ≠ univ) →
+    (∃ f : C → X, ∀ U : C, f U ∈ U.val ∧ (∀ V : C, f U ∈ V.val → U = V)) := by
+  intro hC'
+  have hUniquePoint : ∀ Ω : C, ∃ p ∈ Ω.val, (∀ Ω' ∈ C, p ∈ Ω' → Ω' = Ω) := by
+    intro ⟨Ω, hΩ⟩
+    let C' := C \ {Ω}
+    have hnotUniv : ⋃₀ C' ≠ univ := hC' C' <| diff_singleton_ssubset.mpr hΩ
+    obtain ⟨p, hp⟩ : ∃ p, p ∉ ⋃₀ C' := (ne_univ_iff_exists_notMem (⋃₀ C')).mp hnotUniv
+    use p
+    have hpΩ : ∀ Ω' ∈ C, p ∈ Ω' → Ω' = Ω := by
+      intro Ω' hΩ' hp'
+      have : Ω' ∉ C' := fun h => hp (mem_sUnion_of_mem hp' h)
+      have : Ω' ∈ C \ C' := by exact mem_diff_of_mem hΩ' this
+      rw [diff_diff_cancel_left <| singleton_subset_iff.mpr hΩ] at this
+      exact mem_singleton_iff.mp this
+    have : p ∈ ⋃₀ C := by rw [hC]; exact mem_univ p
+    obtain ⟨ω, hωC, hpω⟩ := mem_sUnion.mp this
+    rw [hpΩ ω hωC hpω] at hpω
+    exact ⟨hpω, hpΩ⟩
+  obtain ⟨f, hf⟩ := Classical.axiom_of_choice hUniquePoint
+  use f
+  exact fun U => ⟨(hf U).1, fun V hV => Eq.symm <| SetCoe.ext <| (hf U).2 V V.property hV⟩
