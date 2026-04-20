@@ -3,6 +3,7 @@ import Mathlib.Geometry.Manifold.Instances.Real
 import Mathlib.Topology.Bases
 import Mathlib.Topology.Compactness.Paracompact
 import «OneManifold».RealCover
+import «OneManifold».RealLemmas
 
 local macro:max "ℝ"n:superscript(term) : term => `(EuclideanSpace ℝ (Fin $(⟨n.raw[0]⟩)))
 
@@ -125,6 +126,38 @@ lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
       apply mem_iUnion.mpr
       use ⟨b, c⟩
 
+  have hWReal : ∀ i : ι, Nonempty (W i ≃ₜ ℝ) := by
+    intro i
+    obtain ⟨a, ha⟩ := hRefinement i.fst
+    let φ : U a ≃ₜ ℝ := (hU a).2.2.some
+    have hWU (x : M) : x ∈ W i → x ∈ U a := fun hx => mem_of_subset_of_mem ha (hWV i hx)
+    let j : {x // x ∈ W i} → {x // x ∈ U a} := Subtype.map id hWU
+    let Wi' := range j
+    have hOM : IsOpenMap j := IsOpenMap.subtype_map IsOpenMap.id (hWOpen i) hWU
+    have hW'Open : IsOpen Wi' := IsOpenMap.isOpen_range hOM
+    have hW'Conn: IsConnected Wi' := by
+      have := isConnected_iff_connectedSpace.mp (hWConn i)
+      exact isConnected_range <| Continuous.subtype_map continuous_id' hWU
+    let X := φ '' Wi'
+    have hXOpen : IsOpen X := φ.isOpen_image.mpr hW'Open
+    have hXConn : IsConnected X := φ.isConnected_image.mpr hW'Conn
+    rcases (open_real_classification X hXOpen hXConn) with h | h | h | h
+    · obtain ⟨a, b, hx⟩ := h -- X = Ioo a b
+      have hab : a < b := by
+        have : Nonempty X := Nonempty.to_subtype hXConn.nonempty
+        have : (Ioo a b).Nonempty := nonempty_coe_sort.mp (by rwa [hx] at this)
+        obtain ⟨hat, htb⟩ := mem_Ioo.mp this.some_mem
+        exact lt_trans hat htb
+      have ψ : Ioo a b ≃ₜ ℝ :=
+        OpenIntervalHomeomorphReal.homeomorph_Ioo_real hab
+      sorry
+    · obtain ⟨a, ha⟩ := h -- X = Iio a
+      sorry
+    · obtain ⟨a, ha⟩ := h -- X = Ioi a
+      sorry
+    · -- X = univ
+      sorry
+
   have hW_point_finite : ∀ x : M, {i | x ∈ W i}.Finite := by
     intro x
     have : Finite {b | x ∈ V b} := finite_coe_iff.mpr <| hVLocallyFinite.point_finite x
@@ -155,9 +188,6 @@ lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
         exact mem_of_subset_of_mem (fun _ t ↦ t) hWz
     rw [hyz_empty] at this
     exact (mem_empty_iff_false x).mp this
-
-  have hWReal : ∀ i : ι, Nonempty (W i ≃ₜ ℝ) := by
-    sorry
 
   let C : Set (Set M) := {W i | i : ι}
   have hCOpen : ∀ Ω ∈ C, IsOpen Ω := by

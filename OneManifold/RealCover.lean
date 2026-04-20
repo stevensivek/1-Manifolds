@@ -58,7 +58,7 @@ private noncomputable def homeomorph_tan_real : Homeomorph (Ioo (-(Real.pi / 2))
   Real.tanPartialHomeomorph.toHomeomorphSourceTarget.trans <| Homeomorph.Set.univ ℝ
 
 /-- Every bounded open interval in ℝ is homeomorphic to ℝ itself. -/
-noncomputable def homeomorph_open_real (a b : ℝ) {hab : a < b} : (Ioo a b) ≃ₜ ℝ := by
+noncomputable def homeomorph_Ioo_real {a b : ℝ} (hab : a < b) : (Ioo a b) ≃ₜ ℝ := by
   let f : (Ioo a b) ≃ₜ (Ioo (0 : ℝ) 1) := homeomorph_Ioo_Ioo_unit a b (hab := hab)
   have : -(Real.pi / 2) < (Real.pi / 2) := by
     simp only [neg_lt_self_iff, Nat.ofNat_pos, div_pos_iff_of_pos_right]
@@ -111,7 +111,7 @@ private lemma chart_homeo_real (x : M) : Nonempty (RealChart M x) := by
       use y
       exact ⟨hyab, ψ.left_inv hxψ⟩,
     isOpen : IsOpen U' := ψ.isOpen_image_symm_of_subset_target isOpen_Ioo habV,
-    chartAt := f.trans <| OpenIntervalHomeomorphReal.homeomorph_open_real a b (hab := hab)
+    chartAt := f.trans <| OpenIntervalHomeomorphReal.homeomorph_Ioo_real hab
   }
   exact Nonempty.intro chart
 
