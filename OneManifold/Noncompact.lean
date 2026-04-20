@@ -8,9 +8,10 @@ import «OneManifold».RealLemmas
 local macro:max "ℝ"n:superscript(term) : term => `(EuclideanSpace ℝ (Fin $(⟨n.raw[0]⟩)))
 
 open Set Function Topology
+set_option linter.style.emptyLine false
 
-variable {M : Type*} [TopologicalSpace M] [SecondCountableTopology M] [T2Space M]
-  [ChartedSpace ℝ¹ M]
+variable (M : Type*)
+  [TopologicalSpace M] [SecondCountableTopology M] [T2Space M] [ChartedSpace ℝ¹ M]
 
 instance paracompact_ChartedSpaceR1 : ParacompactSpace M := by
   haveI : LocallyCompactSpace M := ChartedSpace.locallyCompactSpace ℝ¹ M
@@ -89,8 +90,7 @@ lemma disjoint_union_of_opens {X : Type*} [TopologicalSpace X]
   refine ⟨S, hcOpen, hcConn, hDisjoint, hUnion⟩
 
 lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
-    (∀ s ∈ C, IsOpen s) ∧ (⋃₀ C = univ) ∧
-    (∀ x : M, {s ∈ C | x ∈ s}.Finite) ∧
+    (∀ s ∈ C, IsOpen s) ∧ (⋃₀ C = univ) ∧ (∀ x : M, {s ∈ C | x ∈ s}.Finite) ∧
     (∀ s ∈ C, Nonempty (s ≃ₜ ℝ)) := by
   obtain ⟨U, hU⟩ := real_charts M
   have hUCover : ⋃ x : M, U x = univ := by
@@ -115,7 +115,6 @@ lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
 
   have hWOpen : ∀ i : ι, IsOpen (W i) := fun i => (hcompVb i.fst).1 i.snd
   have hWConn : ∀ i : ι, IsConnected (W i) := fun i => (hcompVb i.fst).2.1 i.snd
-
   have hWCover : ⋃ i, W i = @univ M := by
     ext x
     constructor <;> intro hx
@@ -125,39 +124,25 @@ lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
       obtain ⟨c, hc⟩ := mem_iUnion.mp (by rwa [← (hcompVb b).2.2.2] at hb)
       apply mem_iUnion.mpr
       use ⟨b, c⟩
-
   have hWReal : ∀ i : ι, Nonempty (W i ≃ₜ ℝ) := by
     intro i
     obtain ⟨a, ha⟩ := hRefinement i.fst
     let φ : U a ≃ₜ ℝ := (hU a).2.2.some
     have hWU (x : M) : x ∈ W i → x ∈ U a := fun hx => mem_of_subset_of_mem ha (hWV i hx)
     let j : {x // x ∈ W i} → {x // x ∈ U a} := Subtype.map id hWU
-    let Wi' := range j
-    have hOM : IsOpenMap j := IsOpenMap.subtype_map IsOpenMap.id (hWOpen i) hWU
-    have hW'Open : IsOpen Wi' := IsOpenMap.isOpen_range hOM
-    have hW'Conn: IsConnected Wi' := by
+    have hj : IsOpenEmbedding j := by
+      apply IsOpenEmbedding.of_continuous_injective_isOpenMap
+      · exact Continuous.subtype_map continuous_id hWU
+      · exact Subtype.map_injective hWU fun _ _ t ↦ t
+      · exact IsOpenMap.subtype_map IsOpenMap.id (hWOpen i) hWU
+    have hW'Conn: IsConnected (range j) := by
       have := isConnected_iff_connectedSpace.mp (hWConn i)
       exact isConnected_range <| Continuous.subtype_map continuous_id' hWU
-    let X := φ '' Wi'
-    have hXOpen : IsOpen X := φ.isOpen_image.mpr hW'Open
+    let X := φ '' (range j)
+    have hXOpen : IsOpen X := φ.isOpen_image.mpr hj.isOpenMap.isOpen_range
     have hXConn : IsConnected X := φ.isConnected_image.mpr hW'Conn
-    rcases (open_real_classification X hXOpen hXConn) with h | h | h | h
-    · obtain ⟨a, b, hx⟩ := h -- X = Ioo a b
-      have hab : a < b := by
-        have : Nonempty X := Nonempty.to_subtype hXConn.nonempty
-        have : (Ioo a b).Nonempty := nonempty_coe_sort.mp (by rwa [hx] at this)
-        obtain ⟨hat, htb⟩ := mem_Ioo.mp this.some_mem
-        exact lt_trans hat htb
-      have ψ : Ioo a b ≃ₜ ℝ :=
-        OpenIntervalHomeomorphReal.homeomorph_Ioo_real hab
-      sorry
-    · obtain ⟨a, ha⟩ := h -- X = Iio a
-      sorry
-    · obtain ⟨a, ha⟩ := h -- X = Ioi a
-      sorry
-    · -- X = univ
-      sorry
-
+    have α : X ≃ₜ ℝ := (OpenIntervalHomeomorphReal.homeomorph_open_real hXOpen hXConn).some
+    exact Nonempty.intro <| hj.toIsEmbedding.toHomeomorph.trans <| (φ.image <| range j).trans α
   have hW_point_finite : ∀ x : M, {i | x ∈ W i}.Finite := by
     intro x
     have : Finite {b | x ∈ V b} := finite_coe_iff.mpr <| hVLocallyFinite.point_finite x
@@ -190,45 +175,129 @@ lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
     exact (mem_empty_iff_false x).mp this
 
   let C : Set (Set M) := {W i | i : ι}
-  have hCOpen : ∀ Ω ∈ C, IsOpen Ω := by
-    intro Ω hΩ
+  have hCProp {p : Set M → Prop} : (∀ i : ι, p (W i)) → (∀ Ω ∈ C, p Ω) := by
+    intro hWp _ hΩ
     obtain ⟨i, hi⟩ := mem_range.mp hΩ
     rw [← hi]
-    exact hWOpen i
+    exact hWp i
   have hCFinite : ∀ x : M, {s ∈ C | x ∈ s}.Finite := by
     intro x
-    have := hW_point_finite x
-    sorry
-  have hCConn : ∀ Ω ∈ C, IsConnected Ω := by
-    intro Ω hΩ
-    obtain ⟨i, hi⟩ := mem_range.mp hΩ
-    rw [← hi]
-    exact hWConn i
+    let f : {i | x ∈ W i} → {s ∈ C | x ∈ s} :=
+      fun i => ⟨W i, mem_setOf.mpr ⟨(by use i), i.property⟩⟩
+    have hf : Surjective f := by
+      intro s
+      obtain ⟨hsc, hx⟩ := s.property
+      obtain ⟨i, hi⟩ := mem_range.mp hsc
+      rw [← hi] at hx
+      use ⟨i, hx⟩
+      exact SetCoe.ext hi
+    have : Finite {i | x ∈ W i} := finite_coe_iff.mpr (hW_point_finite x)
+    exact finite_coe_iff.mp <| Finite.of_surjective f hf
   have hCCover : ⋃₀ C = univ := eq_univ_of_subset (fun _ t ↦ t) hWCover
+  exact ⟨C, hCProp hWOpen, hCCover, hCFinite, hCProp hWReal⟩
 
-  refine ⟨C, hCOpen, hCCover, hCFinite, ?_⟩
-  sorry
+lemma minimal_real_cover : ∃ (C : Set (Set M)),
+    (∀ s ∈ C, IsOpen s) ∧ (⋃₀ C = univ) ∧ (∀ x : M, {s ∈ C | x ∈ s}.Finite) ∧
+    (∀ s ∈ C, Nonempty (s ≃ₜ ℝ)) := by
 
+  let PLFCover := fun (C : Set (Set M)) =>
+    (∀ s ∈ C, IsOpen s) ∧ (⋃₀ C = univ) ∧ (∀ x : M, {s ∈ C | x ∈ s}.Finite) ∧
+    (∀ s ∈ C, Nonempty (s ≃ₜ ℝ))
 
-  -- let PSubcover := fun (A : Set M) => (univ ⊆ ⋃ i ∈ A, U i)
-  -- have hUCover : PSubcover univ := by
-  --   intro x
-  --   simp only [mem_univ, forall_const, iUnion_true, mem_iUnion]
-  --   refine ⟨x, (hU x).1⟩
-  -- let S := {A : Set M | PSubcover A}
-  -- have hLB : ∀ c ⊆ S, IsChain (· ⊆ ·) c → c.Nonempty → ∃ lb ∈ S, ∀ s ∈ c, lb ⊆ s := by
-  --   intro c hcS hChain hNE
-  --   unfold IsChain at hChain
-  --   let α := ⋂ A ∈ c, A
-  --   use α
-  --   --use (⋂ A ∈ c, A)
-  --   constructor
-  --   · have : PSubcover α := by
-  --       intro x _
-  --       sorry
-  --     exact this
-  --   · exact fun _ h => biInter_subset_of_mem h
+  obtain ⟨C₀, hC₀⟩ := pointFinite_real_cover M
+  have hPC₀ : PLFCover C₀ := hC₀
+  let S := {C : Set (Set M) | PLFCover C}
+  have hLB : ∀ ch ⊆ S, IsChain (· ⊆ ·) ch → ch.Nonempty → ∃ lb ∈ S, ∀ s ∈ ch, lb ⊆ s := by
+    intro ch hchS hChain hNE
+    unfold IsChain at hChain
+    let α := ⋂ A ∈ ch, A
+    let csome := hNE.some
+    have hcsome : csome ∈ ch := Nonempty.some_mem hNE
+    have hPsome : PLFCover csome := hchS hcsome
+    obtain ⟨hcsOpen, hcsCover, hcsFinite, hcsReal⟩ := hPsome
+    refine ⟨α, mem_setOf.mpr ?_, fun _ hs => biInter_subset_of_mem hs⟩
+    have hαSubset : α ⊆ csome := biInter_subset_of_mem hcsome
+    refine ⟨?_, ?_, ?_, ?_⟩ -- now need to prove that PLFCover α
+    · exact fun s hs => hcsOpen s <| mem_iInter₂.mp hs csome hcsome
+    · -- The hard part: prove that ⋃₀ α = univ
+      apply univ_subset_iff.mp
+      intro x hx
+      by_contra hx_mem_sUnion
+      let Sx := {s | s ∈ csome ∧ x ∈ s}
+      obtain ⟨mem_Sx, hmem_Sx, hx_mem_Sx⟩ : ∃ s ∈ Sx, x ∈ s := by
+        have := mem_univ x
+        rw [← hcsCover] at this
+        obtain ⟨s, hscsome, hxs⟩ := mem_sUnion.mpr this
+        exact ⟨s, mem_sep hscsome hxs, hxs⟩
+      --have hxFinite : Sx.Finite := hcsFinite x
+      have hxFinite' : Finite Sx := finite_coe_iff.mpr <| hcsFinite x
+      have hhh : Nonempty Sx := by
+        exact Nonempty.intro ⟨mem_Sx, hmem_Sx⟩
+      have : (@univ Sx).Nonempty := by exact nonempty_iff_univ_nonempty.mp hhh
+      have : ∀ s : Sx, ∃ t ∈ ch, s.val ∉ t := by
+        intro s
+        obtain ⟨hs_csome, hxs⟩ := mem_setOf.mp s.property
+        by_contra! hsα
+        exact hx_mem_sUnion <| mem_sUnion_of_mem hxs <| mem_iInter₂_of_mem hsα
+      obtain ⟨f, hf⟩ := Classical.axiom_of_choice this
+      obtain ⟨t₀, ht₀⟩ := Finite.exists_minimalFor f (@univ Sx) finite_univ
+        (nonempty_iff_univ_nonempty.mp <| Nonempty.intro ⟨mem_Sx, hmem_Sx⟩)
+      obtain ⟨ht₀_Sx, hfMin⟩ := ht₀
+      have hSx_disjoint_ft₀ : ∀ s : Sx, ↑s ∉ f t₀ := by
+        intro s
+        by_contra h
+        have := imp_iff_not_or.mp <| hChain (hf t₀).1 (hf s).1
+        simp only [not_not] at this
+        have hft₀fs : f t₀ ⊆ f s := by
+          apply le_iff_subset.mp
+          rcases this with h | h | h
+          · exact le_of_eq h
+          · exact le_iff_subset.mpr h
+          · exact le_iff_subset.mpr (hfMin hx h)
+        exact ((mem_compl_iff (f t₀) ↑s).mp fun a ↦ (hf s).2 (hft₀fs a)) h
 
+      have := imp_iff_not_or.mp <| hChain (hf t₀).1 hcsome
+      simp only [not_not] at this
+      rcases this with h | h | h
+      · -- f t₀ = csome
+        rw [h] at hSx_disjoint_ft₀
+        exact False.elim <| (hSx_disjoint_ft₀ ⟨mem_Sx, hmem_Sx⟩) (mem_of_mem_inter_left hmem_Sx)
+      · -- f t₀ ⊆ csome
+        have h'' : ∀ (s : ↑Sx), ↑s ∉ f t₀ := by
+          exact fun s => (mem_compl_iff (f t₀) ↑s).mp (hSx_disjoint_ft₀ s)
+        --rw [h] at hSx_disjoint_ft₀
+        --exact False.elim <| (hSx_disjoint_ft₀ ⟨mem_Sx, hmem_Sx⟩) (mem_of_mem_inter_left hmem_Sx)
+        sorry
+      · -- csome ⊆ f t₀
+        sorry
+      -- have hSx_disjoint_α : ∀ s ∈ Sx, s ∉ α := by
+      --   by_contra! h
+      --   obtain ⟨s, hSx, hsα⟩ := h
+      --   have hs_not_mem_ft₀ : s ∉ f t₀ := this ⟨s, hSx⟩
+      --   have : s ∉ α := by
+      --     by_contra hs_mem_α
+      --     haveI : Nonempty (f t₀ ∈ ch) := Nonempty.intro (hf t₀).1
+      --     have := mem_iInter.mp hs_mem_α (f t₀)
+      --     have hI : ⋂ (_ : f t₀ ∈ ch), f t₀ = f t₀ := by
+      --       exact iInter_eq_const <| fun _ => by simp only
+      --     rw [hI] at this
+      --     exact hs_not_mem_ft₀ this
+      --   exact this hsα
+      -- have := hSx_disjoint_α mem_Sx hmem_Sx
+      -- have : ∀ s ∈ f t₀, x ∉ s := by
+      --   intro s hs
+      --   by_cases hx : s ∈ Sx
+      --   · have : s ∈
+      --     exact False.elim <| (hSx_disjoint_α s hx) hs
+      --   · exact fun hxs => (hSx_disjoint_α s ⟨mem_of_subset_of_mem hαSubset hs, hxs⟩) hs
+    · intro x
+      apply Finite.subset (hcsFinite x) <| setOf_subset_setOf_of_imp ?_
+      exact fun s => And.imp_left <| fun t ↦ mem_of_subset_of_mem hαSubset t
+    · exact fun s hs => hcsReal s <| mem_iInter₂.mp hs csome hcsome
+
+  obtain ⟨m, hmC₀, hmMinimal⟩ := zorn_superset_nonempty _ hLB C₀ hPC₀
+  have : PLFCover m := hmMinimal.prop
   -- -- obtain ⟨β, V, hVOpen, hVCover, hVLocallyFinite, hRefinement⟩ :=
   -- --   ParacompactSpace.locallyFinite_refinement M U (by exact fun i => (hU i).2.1) hUCover
   -- sorry
+  sorry

@@ -1,6 +1,7 @@
 import Mathlib.Tactic
 import Mathlib.Geometry.Manifold.ChartedSpace
 import Mathlib.Analysis.SpecialFunctions.Trigonometric.Arctan
+import «OneManifold».RealLemmas
 
 /-!
 The main result of this file is `real_charts`, which takes a cover of a 1-manifold
@@ -18,7 +19,7 @@ variable (M : Type*) [TopologicalSpace M] [ChartedSpace ℝ¹ M]
 
 namespace OpenIntervalHomeomorphReal
 
-private lemma hIoo_shift (a b : ℝ) {hab : a < b} (t : Ioo a b) :
+private lemma hIoo_shift {a b : ℝ} (hab : a < b) (t : Ioo a b) :
     (t - a) / (b - a) ∈ Ioo (0 : ℝ) 1 := by
   obtain ⟨x,⟨hx1,hx2⟩⟩ := t
   have habpos : b - a > 0 := by exact sub_pos.mpr hab
@@ -26,7 +27,7 @@ private lemma hIoo_shift (a b : ℝ) {hab : a < b} (t : Ioo a b) :
   · exact div_pos (sub_pos.mpr hx1) habpos
   · exact (div_lt_one₀ habpos).mpr <| sub_lt_sub_right hx2 a
 
-private lemma hIoo_shift' (a b : ℝ) {hab : a < b} (t : Ioo (0 : ℝ) 1) :
+private lemma hIoo_shift' {a b : ℝ} (hab : a < b) (t : Ioo (0 : ℝ) 1) :
     (b - a) * t + a ∈ Ioo a b := by
   obtain ⟨x,⟨hx1,hx2⟩⟩ := t
   have habpos : b - a > 0 := by exact sub_pos.mpr hab
@@ -34,16 +35,14 @@ private lemma hIoo_shift' (a b : ℝ) {hab : a < b} (t : Ioo (0 : ℝ) 1) :
   · exact lt_add_of_pos_left a <| mul_pos habpos hx1
   · exact lt_tsub_iff_right.mp <| mul_lt_of_lt_one_right habpos hx2
 
-private noncomputable def homeomorph_Ioo_Ioo_unit (a b : ℝ) {hab : a < b} :
+private noncomputable def homeomorph_Ioo_Ioo_unit {a b : ℝ} (hab : a < b) :
     Homeomorph (Ioo a b) (Ioo (0 : ℝ) 1) := {
-  toFun : Ioo a b → Ioo (0 : ℝ) 1 := fun t ↦ ⟨(t - a) / (b - a), hIoo_shift a b t⟩,
-  invFun : Ioo (0 : ℝ) 1 → Ioo a b := fun t ↦ ⟨(b - a) * t + a, hIoo_shift' a b t⟩,
+  toFun : Ioo a b → Ioo (0 : ℝ) 1 := fun t ↦ ⟨(t - a) / (b - a), hIoo_shift hab t⟩,
+  invFun : Ioo (0 : ℝ) 1 → Ioo a b := fun t ↦ ⟨(b - a) * t + a, hIoo_shift' hab t⟩,
   left_inv := by
     intro x
     apply Subtype.mk_eq_mk.mpr
-    · simp only [mul_div_cancel₀ (x - a) <| Ne.symm <| ne_of_lt <| sub_pos.mpr hab, sub_add_cancel]
-    · exact fun _ ↦ hab
-    · exact fun _ ↦ hab,
+    simp only [mul_div_cancel₀ (x - a) <| Ne.symm <| ne_of_lt <| sub_pos.mpr hab, sub_add_cancel],
   right_inv := by
     intro x
     apply Subtype.mk_eq_mk.mpr
@@ -59,13 +58,57 @@ private noncomputable def homeomorph_tan_real : Homeomorph (Ioo (-(Real.pi / 2))
 
 /-- Every bounded open interval in ℝ is homeomorphic to ℝ itself. -/
 noncomputable def homeomorph_Ioo_real {a b : ℝ} (hab : a < b) : (Ioo a b) ≃ₜ ℝ := by
-  let f : (Ioo a b) ≃ₜ (Ioo (0 : ℝ) 1) := homeomorph_Ioo_Ioo_unit a b (hab := hab)
+  let f : (Ioo a b) ≃ₜ (Ioo (0 : ℝ) 1) := homeomorph_Ioo_Ioo_unit hab
   have : -(Real.pi / 2) < (Real.pi / 2) := by
     simp only [neg_lt_self_iff, Nat.ofNat_pos, div_pos_iff_of_pos_right]
     exact Real.pi_pos
   let g : (Ioo (0 : ℝ) 1) ≃ₜ (Ioo (-(Real.pi / 2)) (Real.pi / 2)) :=
-    (homeomorph_Ioo_Ioo_unit (-(Real.pi / 2)) (Real.pi / 2) (hab := this)).symm
+    (homeomorph_Ioo_Ioo_unit this).symm
   exact f.trans (g.trans homeomorph_tan_real)
+
+private noncomputable def homeomorph_Ioi_Ioi (a : ℝ) : Ioi a ≃ₜ Ioi (0 : ℝ) := {
+  toFun : Ioi a → Ioi (0 : ℝ) := fun t ↦ ⟨t - a, mem_Ioi.mpr <| sub_pos.mpr t.property⟩,
+  invFun : Ioi (0 : ℝ) → Ioi a := fun t ↦ ⟨t + a, mem_Ioi.mpr <| lt_add_of_pos_left a t.property⟩,
+  left_inv := fun x => by simp only [sub_add_cancel],
+  right_inv := fun x => by simp only [add_sub_cancel_right, Subtype.coe_eta],
+  continuous_toFun := by fun_prop,
+  continuous_invFun := by fun_prop
+}
+
+private noncomputable def homeomorph_neg_Iio (a : ℝ) : Iio a ≃ₜ Ioi (-a) := {
+  toFun : Iio a → Ioi (-a) := fun t ↦ ⟨-t, mem_Ioi.mpr <| neg_lt_neg_iff.mpr t.property⟩,
+  invFun : Ioi (-a) → Iio a := fun t ↦ ⟨-t, mem_Iio.mpr <| neg_lt_of_neg_lt t.property⟩,
+  left_inv := fun x => by simp only [neg_neg, Subtype.coe_eta],
+  right_inv := fun x => by simp only [neg_neg, Subtype.coe_eta],
+  continuous_toFun := by fun_prop,
+  continuous_invFun := by fun_prop
+}
+
+/- Any open, connected subset of ℝ is homeomorphic to ℝ. -/
+theorem homeomorph_open_real {U : Set ℝ} (hOpen : IsOpen U) (hConn : IsConnected U) :
+    Nonempty (U ≃ₜ ℝ) := by
+  have expHomeo : Ioi (0 : ℝ) ≃ₜ ℝ := by
+    let φ := Real.expPartialHomeomorph.toHomeomorphSourceTarget
+    rw [Real.expPartialHomeomorph_source, Real.expPartialHomeomorph_target] at φ
+    exact φ.symm.trans <| Homeomorph.Set.univ ℝ
+  rcases (open_real_classification U hOpen hConn) with h | h | h | h
+  · obtain ⟨a, b, hIoo⟩ := h
+    rw [hIoo]
+    have hab : a < b := by
+      have : Nonempty U := Nonempty.to_subtype hConn.nonempty
+      have : (Ioo a b).Nonempty := nonempty_coe_sort.mp (by rwa [hIoo] at this)
+      obtain ⟨hat, htb⟩ := mem_Ioo.mp this.some_mem
+      exact lt_trans hat htb
+    exact Nonempty.intro <| homeomorph_Ioo_real hab
+  · obtain ⟨a, hIio⟩ := h
+    rw [hIio]
+    have φ : Iio a ≃ₜ Ioi (0 : ℝ) := (homeomorph_neg_Iio a).trans (homeomorph_Ioi_Ioi (-a))
+    exact Nonempty.intro <| φ.trans expHomeo
+  · obtain ⟨a, hIoi⟩ := h
+    rw [hIoi]
+    exact Nonempty.intro <| (homeomorph_Ioi_Ioi a).trans expHomeo
+  · rw [h]
+    exact Nonempty.intro <| Homeomorph.Set.univ ℝ
 
 end OpenIntervalHomeomorphReal
 
