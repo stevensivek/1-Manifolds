@@ -344,3 +344,25 @@ lemma minimal_cover_choose_points {X : Type*} [TopologicalSpace X]
   obtain ⟨f, hf⟩ := Classical.axiom_of_choice hUniquePoint
   use f
   exact fun U => ⟨(hf U).1, fun V hV => Eq.symm <| SetCoe.ext <| (hf U).2 V V.property hV⟩
+
+/- A minimal open cover of a second countable space must be countable. -/
+lemma countable_of_minimal_open_cover {X : Type*} [TopologicalSpace X]
+    [SecondCountableTopology X] {C : Set (Set X)} (hC : ⋃₀ C = univ)
+    (hOpen : ∀ U ∈ C, IsOpen U) (hMinimal : ∀ C' ⊂ C, ⋃₀ C' ≠ univ) :
+    Countable C := by
+  obtain ⟨f, hf⟩ := minimal_cover_choose_points hC hMinimal
+  obtain ⟨b, hbCountable, _, hBasis⟩ := TopologicalSpace.exists_countable_basis X
+  have : ∀ U : C, ∃ Ω : b, f U ∈ Ω.val ∧ Ω.val ⊆ U := by
+    intro U
+    obtain ⟨v, hvb, _⟩ := hBasis.exists_subset_of_mem_open
+      (hf U).1 (hOpen U.val U.property)
+    use ⟨v, hvb⟩
+  obtain ⟨g, hg⟩ := Classical.axiom_of_choice this
+  have hgInj : Injective g := by
+    intro U V hUV
+    apply (hf U).2 V
+    apply mem_of_subset_of_mem (hg V).2
+    rw [← hUV]
+    exact (hg U).1
+  have : Countable b := hbCountable
+  exact hgInj.countable
