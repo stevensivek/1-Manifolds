@@ -160,8 +160,8 @@ lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
     obtain ⟨⟨⟨y, hWy⟩, hyb⟩, ⟨⟨z, hWz⟩, hzb⟩, hyz⟩ :=
       nontrivial_iff.mp <| Infinite.instNontrivial (π ⁻¹' {⟨b, hb⟩})
     replace hyz : y ≠ z := by exact fun h_eq => hyz <| SetCoe.ext <| SetCoe.ext h_eq
-    have hπy : π ⟨y, hWy⟩ = b := by rw [congrArg Subtype.val hyb]
-    have hπz : π ⟨z, hWz⟩ = b := by rw [congrArg Subtype.val hzb]
+    haveI : π ⟨y, hWy⟩ = b := by rw [congrArg Subtype.val hyb]
+    haveI : π ⟨z, hWz⟩ = b := by rw [congrArg Subtype.val hzb]
     have hy₁ : y.fst = b := by simp_all only [coe_setOf, mem_setOf_eq, ne_eq, π]
     have hz₁ : z.fst = b := by simp_all only [coe_setOf, mem_setOf_eq, ne_eq, π]
     obtain ⟨cy, hcy⟩ : ∃ c, y = Sigma.mk b c := by rw [← hy₁]; use y.snd
@@ -193,10 +193,9 @@ lemma pointFinite_real_cover : ∃ (C : Set (Set M)),
       intro s
       obtain ⟨hsc, hx⟩ := s.property
       obtain ⟨i, hi⟩ := mem_range.mp hsc
-      rw [← hi] at hx
-      use ⟨i, hx⟩
+      use ⟨i, by rwa [← hi] at hx⟩
       exact SetCoe.ext hi
-    have : Finite {i | x ∈ W i} := finite_coe_iff.mpr (hW_point_finite x)
+    haveI : Finite {i | x ∈ W i} := finite_coe_iff.mpr (hW_point_finite x)
     exact finite_coe_iff.mp <| Finite.of_surjective f hf
   have hCCover : ⋃₀ C = univ := eq_univ_of_subset (fun _ t ↦ t) hWCover
   exact ⟨C, hCProp hWOpen, hCCover, hCFinite, hCProp hWReal⟩
