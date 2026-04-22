@@ -420,6 +420,92 @@ lemma exists_open_intersecting_finite_union {X : Type*} [TopologicalSpace X]
 lemma connected_enumeration_of_minimal_open_cover {X : Type*} [TopologicalSpace X]
     [SecondCountableTopology X] [ConnectedSpace X] {C : Set (Set X)}
     (hC : ⋃₀ C = univ) (hInf : Infinite C) (hOpen : ∀ U ∈ C, IsOpen U)
+    (hConn : ∀ U ∈ C, IsConnected U) (hMinimal : ∀ C' ⊂ C, ⋃₀ C' ≠ univ) :
+    ∃ f : ℕ ≃ C, ∀ n, IsConnected ((⋃ j : Fin n, f j) : Set X) := by
+  classical -- need to know DecidablePred
+  have hCountable : Countable C := countable_of_minimal_open_cover hC hOpen hMinimal
+  let U : ℕ ≃ C := (nonempty_denumerable_iff.mpr ⟨hCountable, hInf⟩).some.eqv.symm
+
+  /- Every nonempty, finite subset of C with connected sUnion can be enlarged to
+     another such subset by adding one element of C -/
+  --let Csub : Set (Set (Set X)) := {S ⊆ C | Nonempty S ∧ Finite S ∧ IsConnected (⋃₀ S)}
+  let Csub : Set (Set ℕ) := {S | Nonempty S ∧ Finite S ∧ IsConnected (⋃ i ∈ S, (U i) : Set X)}
+  have hU₀ : {0} ∈ Csub := by
+    refine ⟨instNonemptyOfInhabited, Finite.of_subsingleton, ?_⟩
+    simp_all only [ne_eq, mem_singleton_iff, iUnion_iUnion_eq_left, Subtype.coe_prop]
+  have extend_Csub : ∀ S : Csub, ∃ n : ℕ, n ∉ S.val ∧ {n} ∪ S.val ∈ Csub := by
+    intro ⟨S, hS⟩
+    obtain ⟨hSNE, hSFinite, hSConn⟩ := mem_setOf.mp hS
+    let Ω : Set (Set X) := (fun i => ↑(U i)) '' S
+    have hΩFin : Finite Ω := by apply Finite.Set.finite_image
+    have hΩC : Ω ⊆ C := fun _ ⟨n, _, hnω⟩ => by simp_rw [← hnω, Subtype.coe_prop]
+    have hΩConn : IsConnected (⋃₀ Ω) := by
+      simp only [Ω, sUnion_image]
+      exact hSConn
+    obtain ⟨V, hVCS, hVConn⟩ := exists_open_intersecting_finite_union
+      hC hInf hOpen hΩFin hΩC hΩConn hConn
+    let n := U.symm ⟨V, mem_of_mem_inter_left hVCS⟩
+    have hUn : ↑(U n) = V := by simp only [Equiv.symm_symm, Equiv.symm_apply_apply, U, n]
+    have hnS : n ∉ S := by
+      by_contra h
+      have : V ∈ Ω := by
+        simp_rw [← hUn, Ω, mem_image]
+        use n
+      exact (notMem_of_mem_diff hVCS) this
+    have hVS : {n} ∪ S ∈ Csub := by
+      refine ⟨?_, ?_, ?_⟩
+      · exact Nonempty.intro <| codRestrict (fun x ↦ n) ({n} ∪ S) (fun x ↦ mem_union_left S rfl) X
+      · exact Finite.Set.finite_union {n} S
+      · simp only [singleton_union, mem_insert_iff, iUnion_iUnion_eq_or_left, hUn]
+        simpa only [Ω, sUnion_image] using hVConn
+    use n
+  -- Given any S ∈ Csub, g S is the smallest n not in S so that {n} ∪ S is also in Csub
+  let g : Csub → ℕ := fun S => Nat.find (extend_Csub S)
+  have hg_notMem : ∀ S : Csub, g S ∉ S.val := fun S => (Nat.find_spec (extend_Csub S)).1
+  have hg_extend : ∀ S : Csub, {g S} ∪ S.val ∈ Csub := fun S => (Nat.find_spec (extend_Csub S)).2
+  have hg_min : ∀ S : Csub, ∀ m : ℕ, m < g S →
+      (m ∈ S.val ∨ ¬ IsConnected (⋃ i ∈ {m} ∪ S.val, (U i) : Set X)) := by
+    intro S m hm_lt
+    have hm_options : m ∈ S.val ∨ {m} ∪ ↑S ∉ Csub := by
+      have := Nat.find_min (extend_Csub S) hm_lt
+      push Not at this
+      have := imp_iff_not_or.mp this
+      simpa only [not_not] using this
+    apply Or.imp_right ?_ hm_options
+    intro hmsC
+    have hNotCsub := notMem_setOf_iff.mp hmsC
+    push Not at hNotCsub
+    have hmS_NE : Nonempty ↑({m} ∪ S.val) := by
+      exact Nonempty.intro ⟨m, mem_union_left S.val <| mem_singleton m⟩
+    have hmS_Fin : Finite ↑({m} ∪ S.val) := by
+      refine finite_union.mpr ⟨finite_singleton m, ?_⟩
+      exact (mem_setOf.mp <| Subtype.coe_prop S).2.1
+    exact hNotCsub hmS_NE hmS_Fin
+  let gSet : Csub → Csub := fun S => ⟨{g S} ∪ S.val, hg_extend S⟩
+  /- Now we iterate this action n times, starting with {U₀}, to get a sequence
+     i : ℕ → Csub so that each i (n + 1) is built by adding a single element
+     of the cover C to (i n) -/
+  let i : ℕ → Csub := fun n => Nat.iterate gSet n ⟨{0}, hU₀⟩
+  have hg_iterate : ∀ n : ℕ, i (n + 1) = gSet (i n) := by
+    exact fun n => iterate_succ_apply' gSet n ⟨{0}, hU₀⟩
+  have hi_subset : ∀ n : ℕ, (i n).val ⊆ (i (n + 1)).val := by
+    intro n
+    rw [hg_iterate n]
+    exact subset_union_right
+  have hi_diff_eq_g : ∀ n : ℕ, (i (n + 1)).val \ (i n).val = {g (i n)} := by
+    intro n
+    simp_rw [hg_iterate n, gSet, singleton_union]
+    exact insert_diff_eq_singleton <| hg_notMem (i n)
+  -- Need to prove : i is bijective
+  sorry
+
+/- Given an infinite minimal cover of a connected, second countable space
+   X by connected open sets, and given a set U in the cover, we can find an
+   enumeration f : ℕ → C of the cover so that f 0 = U, and so that for each
+   n > 0 the union of the first n sets is connected. -/
+lemma connected_enumeration_of_minimal_open_cover' {X : Type*} [TopologicalSpace X]
+    [SecondCountableTopology X] [ConnectedSpace X] {C : Set (Set X)}
+    (hC : ⋃₀ C = univ) (hInf : Infinite C) (hOpen : ∀ U ∈ C, IsOpen U)
     (hConn : ∀ U ∈ C, IsConnected U)
     (hMinimal : ∀ C' ⊂ C, ⋃₀ C' ≠ univ) (U₀ : C) :
     ∃ f : ℕ → C, (f 0 = U₀ ∧ Injective f ∧
