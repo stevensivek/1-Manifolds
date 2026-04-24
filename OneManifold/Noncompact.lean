@@ -5,6 +5,7 @@ import Mathlib.Topology.Compactness.Paracompact
 import «OneManifold».RealCover
 import «OneManifold».RealLemmas
 import «OneManifold».RealOrCircle
+import «OneManifold».TwoCharts
 
 local macro:max "ℝ"n:superscript(term) : term => `(EuclideanSpace ℝ (Fin $(⟨n.raw[0]⟩)))
 
@@ -318,6 +319,38 @@ lemma minimal_real_cover : ∃ (C : Set (Set M)),
 
   use m
 
+/- If a minimal open cover of X is infinite, then X is not compact. -/
+lemma notCompact_of_infinite_minimal_cover {X : Type*} [TopologicalSpace X]
+    {C : Set (Set X)} (hC : ⋃₀ C = univ) (hInfinite : Infinite C)
+    (hOpen : ∀ s ∈ C, IsOpen s) (hMinimal : ∀ C' ⊂ C, ⋃₀ C' ≠ univ) :
+    ¬ CompactSpace X := by
+  by_contra hCompact
+  let ι := {U // U ∈ C}
+  let U : ι → Set X := fun U => U.val
+  have hCover : univ ⊆ ⋃ i, U i := by
+    rw [← hC]
+    exact sUnion_subset <| fun t ht => subset_iUnion U ⟨t, ht⟩
+  obtain ⟨t, ht⟩ := hCompact.isCompact_univ.elim_finite_subcover
+                    U (fun i => hOpen (U i) i.property) hCover
+  let C' : Set (Set X) := {Subtype.val U | U ∈ t}
+  have hFin' : C'.Finite := Finite.of_surjOn Subtype.val (fun _ a ↦ a) (finite_mem_finset t)
+  have hC' : ⋃₀ C' = univ := by
+    apply univ_subset_iff.mp <| subset_trans ht <| iUnion_subset ?_
+    simp only [iUnion_subset_iff]
+    intro Ω hΩ
+    apply subset_sUnion_of_subset C' (U Ω) (Subset.refl (U Ω)) <| mem_setOf.mpr ?_
+    use Ω
+  have hSub : C' ⊆ C := by
+    intro _ hs
+    obtain ⟨U, _, hUs⟩ := mem_setOf.mp hs
+    exact mem_of_eq_of_mem (Eq.symm hUs) (Subtype.coe_prop U)
+  have hSsub : C' ⊂ C := by
+    refine (ssubset_iff_of_subset hSub).mpr ?_
+    by_contra! h
+    have : Finite C := finite_coe_iff.mpr <| Finite.subset hFin' <| subset_setOf.mpr h
+    exact not_finite C
+  exact (hMinimal C' hSsub) hC'
+
 /- If a cover of X has no proper subcover, then every set U in the cover
    contains some point that is in U but not in any other set in the cover. -/
 lemma minimal_cover_choose_points {X : Type*} [TopologicalSpace X]
@@ -366,6 +399,25 @@ lemma countable_of_minimal_open_cover {X : Type*} [TopologicalSpace X]
     exact (hg U).1
   have : Countable b := hbCountable
   exact hgInj.countable
+
+/- A function f : ℕ → ℕ that is bounded above cannot be injective. -/
+lemma notInjective_of_eventually_bounded {f : ℕ → ℕ} {a b : ℕ} :
+    (∀ n > a, f n ≤ b) → ¬ Injective f := by
+  intro hfBound
+  have hFin : (f '' {k | k > a}).Finite := by
+    apply Finite.subset (finite_le_nat b)
+    intro l ⟨k, hk, hjk⟩
+    rw [← hjk]
+    exact hfBound k (mem_setOf.mp hk)
+  have hInf : {k | k > a}.Infinite := by
+    apply infinite_iff_exists_gt.mpr
+    exact fun i => ⟨i + a + 1, Nat.le_add_left (a + 1) i,
+      lt_of_le_of_lt (Nat.le_add_right i a) (lt_add_one (i + a))⟩
+  have hNotInjOn := Set.not_injOn_infinite_finite_image hInf hFin
+  unfold InjOn at hNotInjOn
+  push Not at hNotInjOn
+  obtain ⟨x, hx, y, hy, hjxy, hxy⟩ := hNotInjOn
+  exact not_injective_iff.mpr ⟨x, y, hjxy, hxy⟩
 
 /- Given an infinite open cover C of a connected space, and a finite subset
    s ⊆ U whose union is preconnected, there is another set U ∈ C \ s whose
@@ -638,22 +690,7 @@ lemma connected_enumeration_of_minimal_open_cover {X : Type*} [TopologicalSpace 
         iUnion_iUnion_eq_or_left, hUn] at hg_min'
       exact hg_min' <| hΩConn (k - 1) (Nat.le_sub_one_of_lt hk)
     /- If j : ℕ → ℕ is bounded above then it can't be injective, contradiction. -/
-    have hjNotInjective : ¬ Injective j := by
-      have hFin : (j '' {k | k > μ}).Finite := by
-        apply Finite.subset (finite_le_nat n)
-        intro l ⟨k, hk, hjk⟩
-        rw [← hjk]
-        exact hjBound k (mem_setOf.mp hk)
-      have hInf : {k | k > μ}.Infinite := by
-        apply infinite_iff_exists_gt.mpr
-        exact fun a => ⟨a + μ + 1, Nat.le_add_left (μ + 1) a,
-          lt_of_le_of_lt (Nat.le_add_right a μ) (lt_add_one (a + μ))⟩
-      have hNotInjOn := Set.not_injOn_infinite_finite_image hInf hFin
-      unfold InjOn at hNotInjOn
-      push Not at hNotInjOn
-      obtain ⟨x, hx, y, hy, hjxy, hxy⟩ := hNotInjOn
-      exact not_injective_iff.mpr ⟨x, y, hjxy, hxy⟩
-    exact hjNotInjective hjInjective
+    exact (notInjective_of_eventually_bounded hjBound) hjInjective
   use (Equiv.ofBijective j ⟨hjInjective, hjSurjective⟩).trans U
   intro n
   simp only [Equiv.trans_apply, Equiv.ofBijective_apply]
@@ -662,14 +699,70 @@ lemma connected_enumeration_of_minimal_open_cover {X : Type*} [TopologicalSpace 
   simpa only [mem_image, mem_setOf_eq, iUnion_exists, biUnion_and',
     iUnion_iUnion_eq_right] using this
 
+lemma real_homeomorph_of_finite_connected_union_of_real_homeomorphs {X : Type*}
+    [TopologicalSpace X] [ConnectedSpace X] [T2Space X] (hNotCompact : ¬ CompactSpace X)
+    {f : ℕ → Set X} (hReal : ∀ i, Nonempty (f i ≃ₜ ℝ)) (hOpen : ∀ i, IsOpen (f i))
+    (hConn : ∀ n : ℕ, IsConnected (⋃ i ≤ n, f i)) :
+    ∀ n, Nonempty (⋃ i ≤ n, f i ≃ₜ ℝ) := by
+  intro n
+  induction n with
+  | zero =>
+    have : (⋃ i, ⋃ (_ : i ≤ 0), f i) = f 0 := by
+      simp only [nonpos_iff_eq_zero, iUnion_iUnion_eq_left]
+    rw [this]
+    exact hReal 0
+  | succ n hn =>
+    have hIic_split : {i | i ≤ n + 1} = {i | i ≤ n} ∪ {n + 1} := by
+      have hUnion := Eq.symm <| Iic_union_Ioc_eq_Iic <| Nat.le_add_right n 1
+      have : Ioc n (n + 1) = {n + 1} := by
+        rw [← Finset.coe_Ioc n (n + 1)]
+        exact Finset.coe_eq_singleton.mpr <| Nat.Ioc_succ_singleton n
+      rwa [this] at hUnion
+    have hSplit : (⋃ i ≤ n + 1, f i) = (⋃ i ≤ n, f i) ∪ (f (n + 1)) := by
+      rw [show ⋃ i ≤ n, f i = ⋃ i ∈ {i | i ≤ n}, f i by simp only [mem_setOf_eq]]
+      have : f (n + 1) = ⋃ i ∈ ({n + 1} : Set ℕ), f i := by
+        simp only [mem_singleton_iff, iUnion_iUnion_eq_left]
+      rw [this, ← biUnion_union, ← hIic_split]
+      simp only [mem_setOf_eq]
+    have hUOpen : IsOpen (⋃ i ≤ n, f i) := isOpen_biUnion (fun i _ ↦ hOpen i)
+
+    have hPreconn := (hConn (n + 1)).isPreconnected
+    rw [hSplit] at hPreconn
+    have := isPreconnected_iff_subset_of_disjoint.mp hPreconn (⋃ i ≤ n, f i) (f (n + 1))
+      hUOpen (hOpen (n + 1)) (by apply subset_refl)
+
+    by_cases hInter : Nonempty ((⋃ i ≤ n, f i) ∩ (f (n + 1)) : Set X)
+    · have := union_of_two_real_lines hUOpen (hOpen (n + 1)) hInter hn (hReal (n + 1))
+      rcases this with hRealHomeo | hCircleHomeo
+      · rwa [hSplit]
+      · have hMCircle := contains_open_circle X (hUOpen.union (hOpen (n + 1))) hCircleHomeo.some
+        exact False.elim <| hNotCompact hMCircle.some.symm.compactSpace
+    · by_contra h
+      have hSubset := isPreconnected_iff_subset_of_disjoint.mp (hConn (n + 1)).isPreconnected
+        (⋃ i ≤ n, f i) (f (n + 1)) hUOpen (hOpen (n + 1))
+        (by simp only [hSplit, subset_refl])
+        (by simp only [not_nonempty_iff_eq_empty'.mp hInter, inter_empty])
+      rw [hSplit] at hSubset
+      rcases hSubset with hh | hh
+      · replace hh := subset_trans subset_union_right hh
+        have : (⋃ i ≤ n, f i) ∪ f (n + 1) = ⋃ i ≤ n, f i :=
+          Subset.antisymm (union_subset (by apply subset_refl) hh) subset_union_left
+        rw [hSplit, this] at h
+        exact h hn
+      · replace hh := subset_trans subset_union_left hh
+        have : (⋃ i ≤ n, f i) ∪ f (n + 1) = f (n + 1) :=
+          Subset.antisymm (union_subset hh (by apply subset_refl)) subset_union_right
+        rw [hSplit, this] at h
+        exact h (hReal (n + 1))
+
 /- A 1-manifold with an infinite minimal cover by open copies of ℝ admits an
    exhaustion by open sets homeomorphic to ℝ. -/
-lemma exhaustion_of_oneManifold [ConnectedSpace M] {C : Set (Set M)}
+omit [ChartedSpace ℝ¹ M] in
+lemma exhaustion_of_one_manifold [ConnectedSpace M] {C : Set (Set M)}
     (hC : ⋃₀ C = univ) (hInf : Infinite C) (hOpen : ∀ U ∈ C, IsOpen U)
     (hReal : ∀ U ∈ C, Nonempty (U ≃ₜ ℝ)) (hMinimal : ∀ C' ⊂ C, ⋃₀ C' ≠ univ) :
     ∃ V : ℕ → Set M, ⋃ n, V n = univ ∧ (∀ n, IsOpen (V n))
       ∧ (∀ n, Nonempty (V n ≃ₜ ℝ)) ∧ (∀ n, V n ⊂ V (n + 1)) := by
-  --obtain ⟨C, hCOpen, hC, hLocFin, hCReal, hMinimal⟩ := minimal_real_cover M
   have hConn : ∀ U ∈ C, IsConnected U := by
     intro U hU
     rw [← Subtype.coe_image_univ U]
@@ -689,12 +782,13 @@ lemma exhaustion_of_oneManifold [ConnectedSpace M] {C : Set (Set M)}
     apply mem_iUnion.mpr
     simp only [mem_iUnion, exists_prop]
     exact ⟨n, le_refl n, by simpa only [n, f.apply_symm_apply]⟩
-  have hVOpen : ∀ n, IsOpen (V n) := by
-    exact fun n => isOpen_biUnion fun i _ => hOpen (f i).val (f i).property
-  have hVReal : ∀ n, Nonempty (V n ≃ₜ ℝ) := by
-    intro n
-    --have := real_or_circle_of_finitely_covered_one_manifold M
-    sorry
+  have hVOpen : ∀ n, IsOpen (V n) :=
+    fun n => isOpen_biUnion fun i _ => hOpen (f i).val (f i).property
+  have hVReal : ∀ n, Nonempty (V n ≃ₜ ℝ) :=
+    real_homeomorph_of_finite_connected_union_of_real_homeomorphs
+      (notCompact_of_infinite_minimal_cover hC hInf hOpen hMinimal)
+      (fun i => hReal (f i) <| Subtype.coe_prop (f i))
+      (fun i => hOpen (f i) <| Subtype.coe_prop (f i)) (fun n => hf n)
   have hVSsubset : ∀ n, V n ⊂ V (n + 1) := by
     intro n
     refine Set.ssubset_iff_subset_ne.mpr ⟨?_, ?_⟩
@@ -712,3 +806,26 @@ lemma exhaustion_of_oneManifold [ConnectedSpace M] {C : Set (Set M)}
       exact (lt_self_iff_false n).mp
         <| lt_of_lt_of_le (lt_add_one n) (le_of_eq_of_le h_succn_k hkn)
   exact ⟨V, hVCover, hVOpen, hVReal, hVSsubset⟩
+
+lemma real_or_circle_or_exhaustion_of_one_manifold [ConnectedSpace M] :
+  Nonempty (M ≃ₜ ℝ) ∨ Nonempty (M ≃ₜ Circle) ∨
+  (∃ V : ℕ → Set M, ⋃ n, V n = univ ∧ (∀ n, IsOpen (V n))
+      ∧ (∀ n, Nonempty (V n ≃ₜ ℝ)) ∧ (∀ n, V n ⊂ V (n + 1))) := by
+  obtain ⟨C, hCOpen, hC, hCPointFinite, hCReal, hCMinimal⟩ := minimal_real_cover M
+  rw [← or_assoc]
+  by_cases hCInf : Infinite C
+  · right
+    exact exhaustion_of_one_manifold M hC hCInf hCOpen hCReal hCMinimal
+  · left
+    let U : {s // s ∈ C} → Set M := Subtype.val
+    have hUOpenNonempty : ∀ i, IsOpen (U i) ∧ Nonempty ((U i) ≃ₜ ℝ) := by
+      exact fun i => ⟨hCOpen (U i) (Subtype.coe_prop i), hCReal (U i) (Subtype.coe_prop i)⟩
+    have : Finite C := Finite.of_not_infinite hCInf
+    have : Fintype (@univ {s // s ∈ C}) := fintypeUniv
+    have hFiniteSubcover : ∃ t : Finset {s // s ∈ C}, univ ⊆ ⋃ i ∈ t, U i := by
+      use univ.toFinset
+      apply univ_subset_iff.mpr
+      simp_rw [← hC, toFinset_univ, Finset.mem_univ, iUnion_true, sUnion_eq_iUnion]
+      rfl
+    exact (real_or_circle_of_finitely_covered_one_manifold
+           M U hUOpenNonempty hFiniteSubcover).or
