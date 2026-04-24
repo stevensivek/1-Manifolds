@@ -4,6 +4,7 @@ import Mathlib.Topology.Bases
 import Mathlib.Topology.Compactness.Paracompact
 import «OneManifold».RealCover
 import «OneManifold».RealLemmas
+import «OneManifold».RealOrCircle
 
 local macro:max "ℝ"n:superscript(term) : term => `(EuclideanSpace ℝ (Fin $(⟨n.raw[0]⟩)))
 
@@ -406,8 +407,8 @@ lemma exists_open_intersecting_finite_union {X : Type*} [TopologicalSpace X]
 
 /- Given an infinite minimal cover of a connected, second countable space
    X by connected open sets, and given a set U in the cover, we can find an
-   enumeration f : ℕ → C of the cover so that f 0 = U, and so that for each
-   n > 0 the union of the first n sets is connected. -/
+   enumeration f : ℕ ≃ C of the cover such that for each n > 0 the union of
+   the first n sets is connected. -/
 lemma connected_enumeration_of_minimal_open_cover {X : Type*} [TopologicalSpace X]
     [SecondCountableTopology X] [ConnectedSpace X] {C : Set (Set X)}
     (hC : ⋃₀ C = univ) (hInf : Infinite C) (hOpen : ∀ U ∈ C, IsOpen U)
@@ -660,3 +661,54 @@ lemma connected_enumeration_of_minimal_open_cover {X : Type*} [TopologicalSpace 
   rw [hi_eq_image_j n] at this
   simpa only [mem_image, mem_setOf_eq, iUnion_exists, biUnion_and',
     iUnion_iUnion_eq_right] using this
+
+/- A 1-manifold with an infinite minimal cover by open copies of ℝ admits an
+   exhaustion by open sets homeomorphic to ℝ. -/
+lemma exhaustion_of_oneManifold [ConnectedSpace M] {C : Set (Set M)}
+    (hC : ⋃₀ C = univ) (hInf : Infinite C) (hOpen : ∀ U ∈ C, IsOpen U)
+    (hReal : ∀ U ∈ C, Nonempty (U ≃ₜ ℝ)) (hMinimal : ∀ C' ⊂ C, ⋃₀ C' ≠ univ) :
+    ∃ V : ℕ → Set M, ⋃ n, V n = univ ∧ (∀ n, IsOpen (V n))
+      ∧ (∀ n, Nonempty (V n ≃ₜ ℝ)) ∧ (∀ n, V n ⊂ V (n + 1)) := by
+  --obtain ⟨C, hCOpen, hC, hLocFin, hCReal, hMinimal⟩ := minimal_real_cover M
+  have hConn : ∀ U ∈ C, IsConnected U := by
+    intro U hU
+    rw [← Subtype.coe_image_univ U]
+    have hConnUnivU : IsConnected (@univ U) :=
+      (hReal U hU).some.symm.isConnected_preimage.mp isConnected_univ
+    exact IsConnected.image hConnUnivU Subtype.val
+      (Continuous.continuousOn continuous_subtype_val)
+  obtain ⟨f, hf⟩ := connected_enumeration_of_minimal_open_cover hC hInf hOpen hConn hMinimal
+  let V : ℕ → Set M := fun n => ⋃ i ≤ n, f i
+  have hVCover : ⋃ n, V n = univ := by
+    apply univ_subset_iff.mp
+    intro x hx
+    apply mem_iUnion.mpr
+    obtain ⟨U, hUC, hxU⟩ : ∃ U ∈ C, x ∈ U := mem_sUnion.mp (by rwa [hC])
+    let n := f.symm ⟨U, hUC⟩
+    use n
+    apply mem_iUnion.mpr
+    simp only [mem_iUnion, exists_prop]
+    exact ⟨n, le_refl n, by simpa only [n, f.apply_symm_apply]⟩
+  have hVOpen : ∀ n, IsOpen (V n) := by
+    exact fun n => isOpen_biUnion fun i _ => hOpen (f i).val (f i).property
+  have hVReal : ∀ n, Nonempty (V n ≃ₜ ℝ) := by
+    intro n
+    --have := real_or_circle_of_finitely_covered_one_manifold M
+    sorry
+  have hVSsubset : ∀ n, V n ⊂ V (n + 1) := by
+    intro n
+    refine Set.ssubset_iff_subset_ne.mpr ⟨?_, ?_⟩
+    · apply biUnion_subset_biUnion_left
+      exact fun t ht => Nat.le_add_right_of_le ht
+    · obtain ⟨p, hp⟩ := minimal_cover_choose_points hC hMinimal
+      obtain ⟨hpfnMem_f, hpnUnique⟩ := hp (f (n + 1))
+      have hpfnMem_V : p (f (n + 1)) ∈ V (n + 1) := by
+        apply mem_of_subset_of_mem ?_ hpfnMem_f
+        exact fun y hy => mem_iUnion₂.mpr ⟨n + 1, le_refl (n + 1), hy⟩
+      refine Ne.symm <| ne_of_mem_of_not_mem' hpfnMem_V ?_
+      by_contra h -- need to show: p (f (n + 1)) ∉ V n
+      obtain ⟨k, hkn, hpfMem_fk⟩ := mem_iUnion₂.mp h
+      have h_succn_k := f.injective <| hpnUnique (f k) hpfMem_fk
+      exact (lt_self_iff_false n).mp
+        <| lt_of_lt_of_le (lt_add_one n) (le_of_eq_of_le h_succn_k hkn)
+  exact ⟨V, hVCover, hVOpen, hVReal, hVSsubset⟩
