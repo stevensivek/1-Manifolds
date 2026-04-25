@@ -6,4 +6,5 @@ import «OneManifold».OverlapLemmas
 import «OneManifold».RealCover
 import «OneManifold».RealLemmas
 import «OneManifold».RealOrCircle
+import «OneManifold».SecondCountable
 import «OneManifold».TwoCharts
