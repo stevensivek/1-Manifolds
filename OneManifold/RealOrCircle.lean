@@ -225,3 +225,44 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
     exact ht_at_most_one htCard
   · right
     exact ht_at_least_two <| Nat.le_of_not_lt htCard
+
+-- /- If a connected set Ω ⊆ M is the union of finitely many open sets
+--    homeomorphic to ℝ, then either Ω is homeomorphic to ℝ or M is a circle. -/
+-- theorem real_or_circle_of_finitely_covered_one_submanifold [ChartedSpace ℝ¹ M]
+--     {ι : Type*} (U : ι → Set M) {Ω : Set M} {t : Finset ι}
+--     (hUOpen : ∀ i ∈ t, IsOpen (U i) ∧ Nonempty ((U i) ≃ₜ ℝ))
+--     (hSubset : ∀ i ∈ t, U i ⊆ Ω) (hUnion : ⋃ i ∈ t, U i = Ω)
+--     (hConn : IsConnected Ω) :
+--     (Nonempty (Ω ≃ₜ ℝ)) ∨ (Nonempty (M ≃ₜ Circle)) := by
+--   let Ω' := {t // t ∈ Ω}
+--   let ι' := {i // i ∈ t}
+--   let U' : ι' → Set Ω := fun i => {x : Ω' | ↑x ∈ U i}
+--   have hU'OpenReal : ∀ i, (IsOpen (U' i) ∧ Nonempty (U' i ≃ₜ ℝ)) := by
+--     intro i
+--     have hi := Subtype.coe_prop i
+--     obtain ⟨hOpen, hReal⟩ := open_subtype_homeomorph (hUOpen i hi).1 (hSubset i hi)
+--     exact ⟨hOpen, Nonempty.intro <| hReal.some.symm.trans (hUOpen i hi).2.some⟩
+--   haveI : ConnectedSpace Ω' := isConnected_iff_connectedSpace.mp hConn
+--   have φ : Ω ≃ₜ Ω' := by
+--     sorry
+--   have hΩOpen : IsOpen Ω := by
+--     rw [← hUnion]
+--     exact isOpen_biUnion <| fun i hi => (hUOpen i hi).1
+--   haveI : ChartedSpace ℝ¹ Ω' := by
+--     have : ChartedSpace ℝ¹ Ω := TopologicalSpace.Opens.instChartedSpace ⟨Ω, hΩOpen⟩
+--     sorry
+--   have ht' : ∃ t' : Finset ι', univ ⊆ ⋃ i ∈ t', U' i := by
+--     use Finset.univ
+--     intro x hx
+--     have : x.val ∈ ⋃ i ∈ t, U i := by
+--       rw [hUnion]
+--       exact Subtype.coe_prop x
+--     obtain ⟨i, hit, hxi⟩ := mem_iUnion₂.mp this
+--     apply mem_iUnion.mpr
+--     use ⟨i, hit⟩
+--     simp only [Finset.mem_univ, iUnion_true]
+--     exact mem_setOf.mpr hxi
+--   have := real_or_circle_of_finitely_covered_one_manifold Ω' U' hU'OpenReal ht'
+--   rcases this.or with hReal | hCircle
+--   · left; exact Nonempty.intro <| φ.trans hReal.some
+--   · right; exact contains_open_circle M hΩOpen (φ.trans hCircle.some)

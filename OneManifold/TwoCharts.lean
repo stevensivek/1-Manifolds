@@ -34,57 +34,24 @@ lemma union_of_two_real_lines' [ConnectedSpace X] {U V : Set X} (hU : IsOpen U) 
     · left; exact homeomorph_real_of_glue_open_real_real hU hV hUniv h hUR hVR
     · right; exact homeomorph_circle_of_glue_open_real_real hU hV hUniv h hUR hVR
 
-/- If U and V are open sets, then their images in the subtype U ∪ V are
-   open sets homeomorphic to U and V. -/
-lemma union_subtype_homeomorph {Y : Type*} [TopologicalSpace Y] {U V : Set Y}
-    (hU : IsOpen U) (hV : IsOpen V) :
-    IsOpen {t : {x // x ∈ U ∪ V} | t.val ∈ U}
-    ∧ IsOpen {t : {x // x ∈ U ∪ V} | t.val ∈ V}
-    ∧ ({t : {x // x ∈ U ∪ V} | t.val ∈ U} ∪ {t : {x // x ∈ U ∪ V} | t.val ∈ V} = univ)
-    ∧ Nonempty (U ≃ₜ {t : {x // x ∈ U ∪ V} | t.val ∈ U})
-    ∧ Nonempty (V ≃ₜ {t : {x // x ∈ U ∪ V} | t.val ∈ V}) := by
-  let Z := {x // x ∈ U ∪ V}
-  let U' : Set Z := {x | x.val ∈ U}
-  let V' : Set Z := {x | x.val ∈ V}
-  have hU' : IsOpen U' := by
-    refine isOpen_mk.mpr ?_
-    use U
-    exact ⟨hU, rfl⟩
-  have hV' : IsOpen V' := by
-    refine isOpen_mk.mpr ?_
-    use V
-    exact ⟨hV, rfl⟩
-  have hUniv : U' ∪ V' = univ := by
-    apply univ_subset_iff.mp
-    intro x _
-    rcases (Subtype.coe_prop x) with hxU | hxV
-    · left; exact hxU
-    · right; exact hxV
+/- If U is open and U ⊆ Ω, then the image of U in the subtype Ω is an open
+   set homeomorphic to U. -/
+lemma open_subtype_homeomorph {Y : Type*} [TopologicalSpace Y] {U Ω : Set Y}
+    (hU : IsOpen U) (hSubset : U ⊆ Ω) :
+    IsOpen {t : {x // x ∈ Ω} | t.val ∈ U} ∧
+    Nonempty (U ≃ₜ {t : {x // x ∈ Ω} | t.val ∈ U}) := by
+  let U' : Set {x // x ∈ Ω} := {x | x.val ∈ U}
   let fU : U ≃ₜ U' := {
-    toFun : U → U' := fun (t : U) => ⟨⟨t.val, mem_union_left V t.prop⟩, t.prop⟩,
-    invFun : U' → U := fun (t : U') => ⟨t, t.prop⟩,
-    left_inv := by (intro _; simp only [Subtype.coe_eta]),
-    right_inv := by (intro _; simp only [Subtype.coe_eta]),
+    toFun : U → U' := fun t => ⟨⟨t.val, mem_of_subset_of_mem hSubset t.prop⟩, t.prop⟩,
+    invFun : U' → U := fun t => ⟨↑t, t.prop⟩,
+    left_inv := by intro _; simp only [Subtype.coe_eta],
+    right_inv := by intro _; simp only [Subtype.coe_eta],
     continuous_toFun := by fun_prop,
     continuous_invFun := by
       apply Continuous.subtype_mk
-      apply Continuous.comp'
-      · apply continuous_induced_dom
-      · apply continuous_induced_dom
+      exact Continuous.comp' continuous_induced_dom continuous_induced_dom
   }
-  let fV : V ≃ₜ V' := {
-    toFun : V → V' := fun (t : V) => ⟨⟨t.val, mem_union_right U t.prop⟩, t.prop⟩,
-    invFun : V' → V := fun (t : V') => ⟨t, t.prop⟩,
-    left_inv := by (intro _; simp only [Subtype.coe_eta]),
-    right_inv := by (intro _; simp only [Subtype.coe_eta]),
-    continuous_toFun := by fun_prop,
-    continuous_invFun := by
-      apply Continuous.subtype_mk
-      apply Continuous.comp'
-      · apply continuous_induced_dom
-      · apply continuous_induced_dom
-  }
-  exact ⟨hU', hV', hUniv, Nonempty.intro fU, Nonempty.intro fV⟩
+  exact ⟨isOpen_mk.mpr ⟨U, hU, rfl⟩, Nonempty.intro fU⟩
 
 /- Given two overlapping open sets in a Hausdorff space X, if each open set is
    homeomorphic to ℝ then their union in X is homeomorphic to either ℝ or a circle. -/
@@ -92,7 +59,13 @@ lemma union_of_two_real_lines {U V : Set X} (hU : IsOpen U) (hV : IsOpen V)
     (hInter : Nonempty (U ∩ V : Set X))
     (hUR : Nonempty (U ≃ₜ ℝ)) (hVR : Nonempty (V ≃ₜ ℝ)) :
     Nonempty ((U ∪ V : Set X) ≃ₜ ℝ) ∨ Nonempty ((U ∪ V : Set X) ≃ₜ Circle) := by
-  obtain ⟨hU', hV', hUniv, hUU', hVV'⟩ := union_subtype_homeomorph hU hV
+  obtain ⟨hU', hUU'⟩ := open_subtype_homeomorph hU <| subset_union_left (t := V)
+  obtain ⟨hV', hVV'⟩ := open_subtype_homeomorph hV <| subset_union_right (s := U)
+  let hUniv : {t : {x // x ∈ U ∪ V} | ↑t ∈ U} ∪ {t : {x // x ∈ U ∪ V} | ↑t ∈ V} = univ := by
+    apply univ_subset_iff.mp
+    intro x _
+    rcases (Subtype.coe_prop x) with hx | hx <;>
+      simp only [mem_union, mem_setOf_eq, hx, true_or, or_true]
   have : ConnectedSpace {x // x ∈ U ∪ V} := by
     apply isConnected_iff_connectedSpace.mp
     have hConn (W : Set X) : Nonempty (W ≃ₜ ℝ) → IsConnected W := by
