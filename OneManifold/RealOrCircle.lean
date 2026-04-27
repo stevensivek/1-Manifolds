@@ -51,22 +51,18 @@ lemma not_homeomorph_real_homeomorph_circle (X : Type*) [TopologicalSpace X] :
    homeomorphic to either ℝ or a circle. -/
 theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
     {ι : Type*} (U : ι → Set M)
-    (hUOpen : ∀ i, IsOpen (U i) ∧ Nonempty ((U i) ≃ₜ ℝ))
+    (hUOpen : ∀ i, IsOpen (U i)) (hUReal : ∀ i, Nonempty ((U i) ≃ₜ ℝ))
     (hFiniteCover : ∃ t : Finset ι, univ ⊆ ⋃ i ∈ t, U i) :
-    Xor' (Nonempty (M ≃ₜ ℝ)) (Nonempty (M ≃ₜ Circle)) := by
-  -- Reduce the theorem statement from Xor' to or
-  apply (xor_iff_or_and_not_and (Nonempty (M ≃ₜ ℝ)) (Nonempty (M ≃ₜ Circle))).mpr
-  simp only [not_homeomorph_real_homeomorph_circle M, not_false_eq_true, and_true]
-
+    (Nonempty (M ≃ₜ ℝ)) ∨ (Nonempty (M ≃ₜ Circle)) := by
   classical
   -- There is a minimal cover of M by open sets homeomorphic to ℝ
   let PCover := fun (s : Finset ι) (V : ι → Set M) =>
-    (∀ i, (IsOpen (V i) ∧ Nonempty (V i ≃ₜ ℝ))) ∧ (@univ M ⊆ ⋃ i ∈ s, V i)
+    (∀ i, (IsOpen (V i))) ∧ (∀ i, Nonempty (V i ≃ₜ ℝ)) ∧ (@univ M ⊆ ⋃ i ∈ s, V i)
   obtain ⟨t, U, hUPCover, htMin⟩ : ∃ (s : Finset ι), ∃ V : ι → Set M, PCover s V ∧
       (∀ (s' : Finset ι), ∀ V' : ι → Set M, s'.card < s.card → ¬ PCover s' V') := by
     have hPexists : ∃ n, ∃ s, ∃ V, s.card = n ∧ PCover s V := by
       obtain ⟨t, htCover⟩ := hFiniteCover
-      use t.card, t, U
+      exact ⟨t.card, t, U, rfl, hUOpen, hUReal, htCover⟩
     let n := Nat.find hPexists
     obtain ⟨s, V, hs_card, hsPCover⟩ := Nat.find_spec hPexists
     use s, V
@@ -85,7 +81,7 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
       apply Nat.eq_of_le_of_lt_succ ?_ htCard2
       apply Finset.card_pos.mpr <| Finset.nonempty_coe_sort.mp ?_
       obtain ⟨x, hx⟩ := exists_mem_of_nonempty M
-      have hx_cover : x ∈ ⋃ i ∈ t, U i := hUPCover.right hx
+      have hx_cover : x ∈ ⋃ i ∈ t, U i := hUPCover.2.2 hx
       obtain ⟨i, _, ⟨hit, _⟩, _⟩ := by rwa [mem_iUnion] at hx_cover
       exact Nonempty.intro ⟨i, hit⟩
     obtain ⟨i, hi, hiUniv⟩ : ∃ i ∈ t, univ ⊆ U i := by
@@ -95,11 +91,11 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
       constructor
       · exact Finset.mem_singleton.mpr rfl
       · intro y hy
-        obtain ⟨z, hz⟩ := mem_iUnion.mp <| hUPCover.right hy
+        obtain ⟨z, hz⟩ := mem_iUnion.mp <| hUPCover.2.2 hy
         simp only [Finset.mem_singleton, mem_iUnion, exists_prop] at hz
         obtain ⟨hzi, hyUz⟩ := hz
         rwa [hzi] at hyUz
-    have hi' : Nonempty (U i ≃ₜ ℝ) := (hUPCover.left i).2
+    have hi' : Nonempty (U i ≃ₜ ℝ) := hUPCover.2.1 i
     let φ₁ : M ≃ₜ (@univ M) := (Homeomorph.Set.univ M).symm
     let φ₂ : (@univ M) ≃ₜ U i := by
       rw [eq_univ_of_univ_subset hiUniv]
@@ -108,9 +104,9 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
 
   have ht_at_least_two : t.card ≥ 2 → Nonempty (M ≃ₜ Circle) := by
     intro ht
-    obtain ⟨hUOpenR, hUCover⟩ := hUPCover
+    obtain ⟨hUOpen, hUReal, hUCover⟩ := hUPCover
     have hUNonempty (i : ι) : (U i).Nonempty := by
-      haveI : Nonempty (U i) := Nonempty.intro <| (hUOpenR i).2.some.symm 0
+      haveI : Nonempty (U i) := Nonempty.intro <| (hUReal i).some.symm 0
       exact Nonempty.of_subtype
 
     -- Pick an open set `U a` in the cover
@@ -148,19 +144,16 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
     -- Find an index b ∈ t' such that `U a` intersects `U b`
     obtain ⟨b, hab, hUaUb⟩ : ∃ b : t, a ≠ b ∧ Nonempty (U a ∩ U b : Set M) := by
       let V₀ : Set M := ⋃ j ∈ t', U j
-      have hV₀Open : IsOpen V₀ := by
-        apply isOpen_iUnion
-        exact fun j => isOpen_iUnion <| fun _ ↦ (hUOpenR j).1
+      have hV₀Open : IsOpen V₀ := isOpen_biUnion <| fun i hi => isOpen_mk.mpr (hUOpen i)
       have : V₀.Nonempty := by
         apply nonempty_iUnion.mpr
         obtain ⟨j₀, hj₀⟩ := ht'NE.exists_mem
-        use j₀
-        apply nonempty_coe_sort.mp ?_
+        refine ⟨j₀, nonempty_coe_sort.mp ?_⟩
         simp only [nonempty_subtype, mem_iUnion, exists_prop, exists_and_left]
         exact ⟨hj₀, hUNonempty j₀⟩
       have hUV₀UnionUniv : (U a) ∪ V₀ = univ := by rw [← hUVCover]
 
-      obtain ⟨y,hy⟩ := nonempty_inter (hUOpenR a).1 hV₀Open hUV₀UnionUniv (hUNonempty a) this
+      obtain ⟨y, hy⟩ := nonempty_inter (hUOpen a) hV₀Open hUV₀UnionUniv (hUNonempty a) this
       obtain ⟨hyU, hyV⟩ := (mem_inter_iff y (U a) V₀).mp hy
       obtain ⟨j₀, hj₀⟩ := mem_iUnion.mp hyV
       obtain ⟨hj₀t', hyUj₀⟩ := by simpa only [mem_iUnion, exists_prop] using hj₀
@@ -168,17 +161,14 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
       constructor
       · apply Subtype.coe_ne_coe.mp
         exact Ne.symm <| ne_of_mem_of_not_mem hj₀t' (t.notMem_erase ↑a)
-      · apply nonempty_subtype.mpr
-        use y
-        exact ⟨hyU, hyUj₀⟩
+      · exact nonempty_subtype.mpr ⟨y, hyU, hyUj₀⟩
 
     -- Since `U a` and `U b` overlap and are homeomorphic to ℝ, their union
     -- must be homeomorphic to either ℝ or a circle.
     let C : Set M := U a ∪ U b
-    have hCOpen : IsOpen C := by
-      exact IsOpen.union (hUOpenR a).1 (hUOpenR b).1
+    have hCOpen : IsOpen C := IsOpen.union (hUOpen a) (hUOpen b)
     have hC : Nonempty (C ≃ₜ ℝ) ∨ Nonempty (C ≃ₜ Circle) :=
-      union_of_two_real_lines (hUOpenR a).1 (hUOpenR b).1 hUaUb (hUOpenR a).2 (hUOpenR b).2
+      union_of_two_real_lines (hUOpen a) (hUOpen b) hUaUb (hUReal a) (hUReal b)
 
     -- If their union is a circle, then we're done.
     rcases (or_comm.mp hC) with (hCCircle | hCReal)
@@ -197,7 +187,7 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
       · rw [h, hVb]
         exact ⟨hCOpen, hCReal⟩
       · rw [hVNotb h]
-        exact hUOpenR j
+        exact ⟨hUOpen j, hUReal j⟩
 
     have hVCover : univ ⊆ ⋃ j ∈ t', V j := by
       rw [hUVCover]
@@ -217,7 +207,7 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
         · rw [hVNotb h]
 
     -- (V,t') is a smaller cover than the minimal (U,t), contradicting hιMin.
-    have hPCoverV : PCover t' V := ⟨hVOpenReal, hVCover⟩
+    have hPCoverV : PCover t' V := ⟨fun j => (hVOpenReal j).1, fun j => (hVOpenReal j).2, hVCover⟩
     exact False.elim <| (htMin t' V <| Finset.card_erase_lt_of_mem ha₀) hPCoverV
 
   by_cases htCard : t.card < 2
@@ -226,43 +216,81 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
   · right
     exact ht_at_least_two <| Nat.le_of_not_lt htCard
 
--- /- If a connected set Ω ⊆ M is the union of finitely many open sets
---    homeomorphic to ℝ, then either Ω is homeomorphic to ℝ or M is a circle. -/
--- theorem real_or_circle_of_finitely_covered_one_submanifold [ChartedSpace ℝ¹ M]
---     {ι : Type*} (U : ι → Set M) {Ω : Set M} {t : Finset ι}
---     (hUOpen : ∀ i ∈ t, IsOpen (U i) ∧ Nonempty ((U i) ≃ₜ ℝ))
---     (hSubset : ∀ i ∈ t, U i ⊆ Ω) (hUnion : ⋃ i ∈ t, U i = Ω)
---     (hConn : IsConnected Ω) :
---     (Nonempty (Ω ≃ₜ ℝ)) ∨ (Nonempty (M ≃ₜ Circle)) := by
---   let Ω' := {t // t ∈ Ω}
---   let ι' := {i // i ∈ t}
---   let U' : ι' → Set Ω := fun i => {x : Ω' | ↑x ∈ U i}
---   have hU'OpenReal : ∀ i, (IsOpen (U' i) ∧ Nonempty (U' i ≃ₜ ℝ)) := by
---     intro i
---     have hi := Subtype.coe_prop i
---     obtain ⟨hOpen, hReal⟩ := open_subtype_homeomorph (hUOpen i hi).1 (hSubset i hi)
---     exact ⟨hOpen, Nonempty.intro <| hReal.some.symm.trans (hUOpen i hi).2.some⟩
---   haveI : ConnectedSpace Ω' := isConnected_iff_connectedSpace.mp hConn
---   have φ : Ω ≃ₜ Ω' := by
---     sorry
---   have hΩOpen : IsOpen Ω := by
---     rw [← hUnion]
---     exact isOpen_biUnion <| fun i hi => (hUOpen i hi).1
---   haveI : ChartedSpace ℝ¹ Ω' := by
---     have : ChartedSpace ℝ¹ Ω := TopologicalSpace.Opens.instChartedSpace ⟨Ω, hΩOpen⟩
---     sorry
---   have ht' : ∃ t' : Finset ι', univ ⊆ ⋃ i ∈ t', U' i := by
---     use Finset.univ
---     intro x hx
---     have : x.val ∈ ⋃ i ∈ t, U i := by
---       rw [hUnion]
---       exact Subtype.coe_prop x
---     obtain ⟨i, hit, hxi⟩ := mem_iUnion₂.mp this
---     apply mem_iUnion.mpr
---     use ⟨i, hit⟩
---     simp only [Finset.mem_univ, iUnion_true]
---     exact mem_setOf.mpr hxi
---   have := real_or_circle_of_finitely_covered_one_manifold Ω' U' hU'OpenReal ht'
---   rcases this.or with hReal | hCircle
---   · left; exact Nonempty.intro <| φ.trans hReal.some
---   · right; exact contains_open_circle M hΩOpen (φ.trans hCircle.some)
+/- If M is covered by finitely many open sets homeomorphic to ℝ, then M is
+   homeomorphic to exactly one of ℝ and a circle. -/
+theorem real_xor_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
+    {ι : Type*} (U : ι → Set M)
+    (hUOpen : ∀ i, IsOpen (U i)) (hUReal : ∀ i, Nonempty ((U i) ≃ₜ ℝ))
+    (hFiniteCover : ∃ t : Finset ι, univ ⊆ ⋃ i ∈ t, U i) :
+    Xor' (Nonempty (M ≃ₜ ℝ)) (Nonempty (M ≃ₜ Circle)) := by
+  -- Reduce the theorem statement from Xor' to or
+  apply (xor_iff_or_and_not_and (Nonempty (M ≃ₜ ℝ)) (Nonempty (M ≃ₜ Circle))).mpr
+  simp only [not_homeomorph_real_homeomorph_circle M, not_false_eq_true, and_true]
+  exact real_or_circle_of_finitely_covered_one_manifold M U hUOpen hUReal hFiniteCover
+
+noncomputable instance chartedSpace_of_iUnion_of_opens {X H : Type*}
+    [TopologicalSpace X] [TopologicalSpace H] [hH : Nonempty H]
+    {ι : Type*} (U : ι → Set X) (hUOpen : ∀ i, IsOpen (U i))
+    (UHomeo : (i : ι) → (U i ≃ₜ H)) (hUniv : ⋃ i, U i = univ) :
+    ChartedSpace H X := by
+  let Uchart : ι → OpenPartialHomeomorph X H := by
+    let incl (i : ι) : OpenPartialHomeomorph (U i) X := by
+      haveI : Nonempty (U i) := Nonempty.intro <| (UHomeo i).symm hH.some
+      exact (IsOpen.isOpenEmbedding_subtypeVal (hUOpen i)).toOpenPartialHomeomorph
+    exact fun i => (incl i).symm.trans (UHomeo i).toOpenPartialHomeomorph
+  have ExistsChartAt (x : X) : Nonempty {φ : OpenPartialHomeomorph X H | x ∈ φ.source} := by
+    have : x ∈ ⋃ i, U i := by simp only [hUniv, mem_univ]
+    obtain ⟨i, hi⟩ := mem_iUnion.mp this
+    refine Nonempty.intro ⟨Uchart i, ?_⟩
+    simpa [Uchart]
+  exact {
+    atlas := {(ExistsChartAt x).some | x}
+    chartAt x := (ExistsChartAt x).some.val,
+    mem_chart_source x := (ExistsChartAt x).some.property,
+    chart_mem_atlas x := mem_setOf.mpr ⟨x, rfl⟩
+  }
+
+/- If a connected set Ω ⊆ M is the union of finitely many open sets
+   homeomorphic to ℝ, then either Ω is homeomorphic to ℝ or M is a circle. -/
+theorem real_or_circle_of_finitely_covered_one_submanifold
+    {ι : Type*} (U : ι → Set M) {Ω : Set M} {t : Finset ι}
+    (hUOpen : ∀ i ∈ t, IsOpen (U i)) (hUReal : ∀ i ∈ t, Nonempty ((U i) ≃ₜ ℝ))
+    (hSubset : ∀ i ∈ t, U i ⊆ Ω) (hUnion : ⋃ i ∈ t, U i = Ω)
+    (hConn : IsConnected Ω) :
+    (Nonempty (Ω ≃ₜ ℝ)) ∨ (Nonempty (M ≃ₜ Circle)) := by
+  let ι' := {i // i ∈ t}
+  let U' : ι' → Set Ω := fun i => {x : Ω | ↑x ∈ U i}
+  have hU'OpenReal : ∀ i, (IsOpen (U' i) ∧ Nonempty (U' i ≃ₜ ℝ)) := by
+    intro i
+    have hi := Subtype.coe_prop i
+    obtain ⟨hOpen, hReal⟩ := open_subtype_homeomorph (hUOpen i hi) (hSubset i hi)
+    exact ⟨hOpen, Nonempty.intro <| hReal.some.symm.trans (hUReal i hi).some⟩
+  have hΩOpen : IsOpen Ω := by
+    rw [← hUnion]
+    exact isOpen_biUnion <| fun i hi => (hUOpen i hi)
+  let U'Homeo : (i : ι') → (U' i ≃ₜ ℝ¹) := by
+    let α : ℝ¹ ≃ₜ ℝ := (PiLp.homeomorph 2 (fun (_ : Fin 1) => ℝ)).trans
+                      <| Homeomorph.funUnique (Fin 1) ℝ
+    exact fun i => (hU'OpenReal i).2.some.trans α.symm
+  have hU'Cover : ⋃ i, U' i = univ := by
+    apply univ_subset_iff.mp
+    intro x _
+    subst hUnion
+    obtain ⟨i, hit, hxUi⟩ := mem_iUnion₂.mp <| Subtype.coe_prop x
+    exact mem_iUnion.mpr ⟨⟨i, hit⟩, mem_setOf.mpr hxUi⟩
+  haveI : ChartedSpace ℝ¹ Ω :=
+    chartedSpace_of_iUnion_of_opens U' (fun i => (hU'OpenReal i).1) U'Homeo hU'Cover
+  have ht' : ∃ t' : Finset ι', univ ⊆ ⋃ i ∈ t', U' i := by
+    use Finset.univ
+    intro x _
+    have : x.val ∈ ⋃ i ∈ t, U i := by
+      rw [hUnion]
+      exact Subtype.coe_prop x
+    obtain ⟨i, hit, hxi⟩ := mem_iUnion₂.mp this
+    exact mem_iUnion₂.mpr <| ⟨⟨i, hit⟩, Finset.mem_univ _ (α := ι'), mem_setOf.mpr hxi⟩
+  haveI : ConnectedSpace Ω := isConnected_iff_connectedSpace.mp hConn
+  have := real_or_circle_of_finitely_covered_one_manifold Ω U'
+    (fun j => (hU'OpenReal j).1) (fun j => (hU'OpenReal j).2) ht'
+  rcases this with hReal | hCircle
+  · left; exact Nonempty.intro <| hReal.some
+  · right; exact contains_open_circle M hΩOpen hCircle.some

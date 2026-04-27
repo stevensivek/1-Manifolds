@@ -28,12 +28,10 @@ open Set Topology Function
 theorem circle_homeomorph_of_closed_one_manifold (M : Type*) [TopologicalSpace M]
     [T2Space M] [ConnectedSpace M] [CompactSpace M] [ChartedSpace ℝ¹ M] :
     Nonempty (M ≃ₜ Circle) := by
-  obtain ⟨U, hU⟩ := real_charts M
-  have hUOpen : ∀ p : M, IsOpen (U p) := fun p => (hU p).2.1
-  have hCover : @univ M ⊆ ⋃ p : M, U p := fun x _ => mem_iUnion_of_mem x (hU x).1
+  obtain ⟨U, hUmem, hUOpen, hUReal⟩ := real_charts M
+  have hCover : @univ M ⊆ ⋃ p : M, U p := fun x _ => mem_iUnion_of_mem x (hUmem x)
   have hFinite := CompactSpace.isCompact_univ.elim_finite_subcover U hUOpen hCover
-  have hRealCircle := Xor'.or <| real_or_circle_of_finitely_covered_one_manifold
-                                 M U (fun p => (hU p).2) hFinite
+  have hRealCircle := real_or_circle_of_finitely_covered_one_manifold M U hUOpen hUReal hFinite
   have : ¬ Nonempty (M ≃ₜ ℝ) := by
     exact fun h => (not_compactSpace_iff.mpr instNoncompactSpaceReal) h.some.compactSpace
   simpa only [this, false_or] using hRealCircle

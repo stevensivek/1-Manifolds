@@ -123,22 +123,18 @@ private lemma chart_homeo_real (x : M) : Nonempty (RealChart M x) := by
   let φ : ℝ¹ ≃ₜ ℝ := (PiLp.homeomorph 2 (fun (_ : Fin 1) => ℝ)).trans
                     <| Homeomorph.funUnique (Fin 1) ℝ
   let ψ := (chartAt ℝ¹ x).transHomeomorph φ
-  let U : Set M := ψ.source
-  let V : Set ℝ := ψ.target
   let y : ℝ := ψ x
   have hxψ : x ∈ ψ.source := by
     simp_all only [(chartAt ℝ¹ x).transHomeomorph_source, mem_chart_source, ψ]
 
-  have : ∃ (a : ℝ) (b : ℝ), a < b ∧ y ∈ (Ioo a b) ∧ (Ioo a b) ⊆ V := by
-    have hyV : y ∈ V := by exact ψ.map_source hxψ
-    obtain ⟨W,hW,_⟩ := (Real.isTopologicalBasis_Ioo_rat).exists_subset_of_mem_open
-                       hyV ψ.open_target
-    obtain ⟨abSet,⟨a,ha⟩,hWabSet⟩ := hW
-    subst ha
-    obtain ⟨bSet,⟨⟨b,hb⟩,_⟩⟩ := hWabSet
-    subst hb
+  have : ∃ (a : ℝ) (b : ℝ), a < b ∧ y ∈ (Ioo a b) ∧ (Ioo a b) ⊆ ψ.target := by
+    have hyTarget : y ∈ ψ.target := ψ.map_source hxψ
+    obtain ⟨W, hW, hyW, hWψ⟩ := (Real.isTopologicalBasis_Ioo_rat).exists_subset_of_mem_open
+                                 hyTarget ψ.open_target
+    simp only [mem_iUnion, mem_singleton_iff, exists_prop] at hW
+    obtain ⟨a, b, hab, hWIoo⟩ := hW
     use a, b
-    simp_all only [mem_iUnion, mem_singleton_iff, exists_prop, Rat.cast_lt, and_self]
+    refine ⟨Real.ratCast_lt.mpr hab, by rwa [hWIoo] at hyW, Eq.trans_subset (Eq.symm hWIoo) hWψ⟩
 
   obtain ⟨a,b,hab,hyab,habV⟩ := this
   let U' := ψ.symm '' (Ioo a b)
@@ -159,8 +155,9 @@ private lemma chart_homeo_real (x : M) : Nonempty (RealChart M x) := by
   exact Nonempty.intro chart
 
 /-- Package the homeomorphisms to ℝ at each point into a function -/
-lemma real_charts : ∃ U : M → Set M, ∀ x : M,
-    x ∈ (U x) ∧ IsOpen (U x) ∧ Nonempty ((U x) ≃ₜ ℝ) := by
+lemma real_charts : ∃ U : M → Set M,
+    (∀ x, x ∈ U x) ∧ (∀ x, IsOpen (U x)) ∧ (∀ x, Nonempty ((U x) ≃ₜ ℝ)) := by
   let f := fun p => (chart_homeo_real M p).some
   use fun p => (f p).U
-  exact fun x => ⟨(f x).contains_x, (f x).isOpen, Nonempty.intro (f x).chartAt⟩
+  exact ⟨fun x => (f x).contains_x, fun x => (f x).isOpen,
+         fun x => Nonempty.intro (f x).chartAt⟩
