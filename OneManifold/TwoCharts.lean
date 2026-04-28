@@ -41,7 +41,7 @@ lemma open_subtype_homeomorph {Y : Type*} [TopologicalSpace Y] {U Ω : Set Y}
     IsOpen {t : {x // x ∈ Ω} | t.val ∈ U} ∧
     Nonempty (U ≃ₜ {t : {x // x ∈ Ω} | t.val ∈ U}) := by
   let U' : Set {x // x ∈ Ω} := {x | x.val ∈ U}
-  let fU : U ≃ₜ U' := {
+  let f : U ≃ₜ U' := {
     toFun : U → U' := fun t => ⟨⟨t.val, mem_of_subset_of_mem hSubset t.prop⟩, t.prop⟩,
     invFun : U' → U := fun t => ⟨↑t, t.prop⟩,
     left_inv := by intro _; simp only [Subtype.coe_eta],
@@ -51,7 +51,7 @@ lemma open_subtype_homeomorph {Y : Type*} [TopologicalSpace Y] {U Ω : Set Y}
       apply Continuous.subtype_mk
       exact Continuous.comp' continuous_induced_dom continuous_induced_dom
   }
-  exact ⟨isOpen_mk.mpr ⟨U, hU, rfl⟩, Nonempty.intro fU⟩
+  exact ⟨isOpen_mk.mpr ⟨U, hU, rfl⟩, Nonempty.intro f⟩
 
 /- Given two overlapping open sets in a Hausdorff space X, if each open set is
    homeomorphic to ℝ then their union in X is homeomorphic to either ℝ or a circle. -/

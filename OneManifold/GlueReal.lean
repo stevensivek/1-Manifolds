@@ -85,41 +85,34 @@ lemma glue_closed_intervals_real₀ {Y : Type*} [TopologicalSpace Y] (A B : Set 
       ext x
       simp only [g, restrict_apply, Subtype.coe_eta, dite_eq_right_iff]
       intro hxle
-      have : (0 : ℝ) ≤ ↑x := by exact Subtype.property x
+      have : (0 : ℝ) ≤ ↑x := Subtype.property x
       have : ↑x = (0 : ℝ) := by simp only [le_antisymm_iff, hxle, true_and, this]
-      simp only [NNReal.val_eq_coe]
       have hψsymm_x : ψ.symm x = ⟨y, hBy⟩ := by
-        have : ψ ⟨y, hBy⟩ = x := by simp_all
+        have : x = ψ ⟨y, hBy⟩ := by simp_all
         apply congrArg ψ.symm at this
-        simp only [ψ.symm_apply_apply] at this
-        exact Eq.symm this
+        simpa only [ψ.symm_apply_apply] using this
       have hφsymm_x : φ.symm ⟨x.val, hxle⟩ = ⟨y, hAy⟩ := by
-        have : φ ⟨y, hAy⟩ = ⟨x.val, hxle⟩ := by
+        have : ⟨x.val, hxle⟩ = φ ⟨y, hAy⟩ := by
           simp only [Subtype.ext_iff, hφy, this]
         apply congrArg φ.symm at this
-        simp only [φ.symm_apply_apply] at this
-        exact Eq.symm this
-      have : (φ.symm ⟨↑x, hxle⟩).val = (ψ.symm x).val := by
-        simp only [hψsymm_x, hφsymm_x]
-      exact this
+        simpa only [φ.symm_apply_apply] using this
+      simp_all only [NNReal.val_eq_coe]
     apply continuousOn_iff_continuous_restrict.mpr
     simp only [h]
     fun_prop
   have hgCont : Continuous g := by
     apply continuousOn_univ.mp
-    rw [show @univ ℝ = Iic (0 : ℝ) ∪ Ici (0 : ℝ) by exact Eq.symm Iic_union_Ici]
+    rw [← show Iic (0 : ℝ) ∪ Ici (0 : ℝ) = @univ ℝ by exact Iic_union_Ici]
     exact (continuousOn_union_iff_of_isClosed isClosed_Iic isClosed_Ici).mpr
           ⟨hgContOnLe, hgContOnGe⟩
 
   have hleftinv : LeftInverse g f := by
     intro x
     simp_all only [NNReal.val_eq_coe, NNReal.coe_eq_zero, ↓reduceDIte, implies_true, f]
-    by_cases h : x ∈ A
-    · simp_all only [↓reduceDIte]
-      have : (φ ⟨x, h⟩).val ≤ 0 := by exact Subtype.coe_prop (φ ⟨x, h⟩)
+    by_cases h : x ∈ A <;> simp_all only [↓reduceDIte]
+    · have : (φ ⟨x, h⟩).val ≤ 0 := Subtype.coe_prop (φ ⟨x, h⟩)
       simp_all only [g, ↓reduceDIte, Subtype.coe_eta, Homeomorph.symm_apply_apply]
-    · simp_all only [↓reduceDIte]
-      have hxB : x ∈ B := by exact h_not_A_B x h
+    · have hxB : x ∈ B := h_not_A_B x h
       have hnonneg : 0 ≤ (ψ ⟨x, hxB⟩).val := by exact Subtype.coe_prop (ψ ⟨x, hxB⟩)
       by_cases h0 : (ψ ⟨x, hxB⟩).val = 0
       · simp_all only [NNReal.val_eq_coe, NNReal.zero_le_coe, NNReal.coe_eq_zero, NNReal.coe_zero]
@@ -129,17 +122,12 @@ lemma glue_closed_intervals_real₀ {Y : Type*} [TopologicalSpace Y] (A B : Set 
           apply ψ.injective at h0
           simp only [Subtype.mk.injEq] at h0
           rwa [← h0] at hAy
-        apply Subtype.coe_eq_iff.mpr
-        use h'
-        exact φ.symm_apply_eq.mpr <| False.elim (h h')
-      · have : (0 : ℝ) < ψ ⟨x, hxB⟩ := by
-          exact lt_of_le_of_ne hnonneg fun a ↦ h0 (Eq.symm a)
-        have : ¬ (↑(ψ ⟨x, hxB⟩) ≤ (0 : ℝ)) := by exact not_le_of_gt this
+        exact False.elim <| h h'
+      · have : (0 : ℝ) < ψ ⟨x, hxB⟩ := lt_of_le_of_ne hnonneg fun a ↦ h0 (Eq.symm a)
+        have : ¬ (↑(ψ ⟨x, hxB⟩) ≤ (0 : ℝ)) := not_le_of_gt this
         simp_all only [g, NNReal.val_eq_coe, NNReal.zero_le_coe, NNReal.coe_eq_zero, NNReal.coe_pos]
         simp_all only [not_le, NNReal.coe_pos, ↓reduceDIte]
-        apply Subtype.coe_eq_iff.mpr
-        use hxB
-        exact ψ.symm_apply_eq.mpr rfl
+        exact Subtype.coe_eq_iff.mpr ⟨hxB, ψ.symm_apply_eq.mpr rfl⟩
 
   have hrightinv : RightInverse g f := by
     intro x
@@ -160,20 +148,16 @@ lemma glue_closed_intervals_real₀ {Y : Type*} [TopologicalSpace Y] (A B : Set 
           exact Ne.symm <| ne_of_lt this
         have : x = 0 := by
           simp only [hx0, ↓reduceDIte, g] at hgxy
-          apply Subtype.coe_eq_iff.mp at hgxy
-          obtain ⟨_, hz⟩ := hgxy
-          obtain hψxy := congrArg ψ hz
+          obtain ⟨_, hz⟩ := Subtype.coe_eq_iff.mp hgxy
+          have hψxy := congrArg ψ hz
           simp only [ψ.apply_symm_apply, hψy] at hψxy
           apply congrArg Subtype.val at hψxy
-          simp only [NNReal.val_eq_coe, NNReal.coe_zero] at hψxy
-          exact hψxy
+          simpa only [NNReal.val_eq_coe, NNReal.coe_zero] using hψxy
         exact hx_ne_0 this
       simp_all only [not_le, ↓reduceDIte]
       apply Subtype.coe_eq_iff.mpr
       use (le_of_lt hx0)
-      apply Eq.symm
-      apply ψ.symm_apply_eq.mp
-      apply Eq.symm
+      refine Eq.symm <| ψ.symm_apply_eq.mp <| Eq.symm ?_
       simp only [g, not_le.mpr hx0, ↓reduceDIte, Subtype.coe_eta]
       rfl
 
@@ -196,19 +180,15 @@ theorem homeomorph_real_of_glue_closed_iic_ici
     {y : Y} (hAy : y ∈ A) (hBy : y ∈ B) (hInter : A ∩ B = {y}) (hUnion : A ∪ B = univ)
     (hφy : φ ⟨y, hAy⟩ = c) (hψy : ψ ⟨y, hBy⟩ = d) :
     Nonempty (Y ≃ₜ ℝ) := by
-
   let φ' : A ≃ₜ Iic (0 : ℝ) := φ.trans <| iicHomeo_iic0 c
-
   have hφ'y : φ' ⟨y, hAy⟩ = (0 : ℝ) := by
     have (x : Iic c) : (iicHomeo_iic0 c) x = x.val - c := by rfl
     simp [φ', hφy, this]
-
   let ψ' : B ≃ₜ Ici (0 : ℝ) := ψ.trans <| iciHomeo_ici0 d
   have hψ'y : ψ' ⟨y, hBy⟩ = (0 : ℝ) := by
     simp only [ψ.trans_apply, NNReal.val_eq_coe, NNReal.coe_eq_zero, ψ']
     apply Subtype.mk_eq_mk.mpr
     simp only [hψy, sub_self]
-
   exact glue_closed_intervals_real₀ A B hA hB φ' ψ' hAy hBy hInter hUnion hφ'y hψ'y
 
 /- Let X be a Hausdorff space covered by two open sets U ≃ₜ ℝ and V ≃ₜ ℝ, with
@@ -265,10 +245,10 @@ theorem homeomorph_real_of_glue_open_real_real {X : Type*} [TopologicalSpace X] 
     exact this.isPreconnected.connectedComponentIn <| mem_image_of_mem ψ hxUV
 
   let f := φ.symm.trans ψ
-  have hf_image : f '' (Iio a) = (Ioi b) := by
-    exact transition_iio_to_ioi hφSource hψSource hxUV hφUV hψUV
-  have hf_mono : StrictMonoOn f (Iio a) := by
-    exact monotone_iio_to_ioi hφSource hφTarget hψSource hψTarget hxUV hφUV hψUV
+  have hf_image : f '' (Iio a) = (Ioi b) :=
+    transition_iio_to_ioi hφSource hψSource hxUV hφUV hψUV
+  have hf_mono : StrictMonoOn f (Iio a) :=
+    monotone_iio_to_ioi hφSource hφTarget hψSource hψTarget hxUV hφUV hψUV
   have hf_val : f (φ x) = ψ x := by simp_all [f]
 
   have hφxa : φ x ∈ Iio a := by

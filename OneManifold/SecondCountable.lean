@@ -66,8 +66,8 @@ lemma disjoint_union_of_opens [LocallyConnectedSpace X] {U : Set X} (hU : IsOpen
     intro c
     have hcOpen : IsOpen (ConnectedComponents.mk ⁻¹' {c}) := by
       refine IsOpen.preimage ConnectedComponents.continuous_coe ?_
-      have : DiscreteTopology (ConnectedComponents U) := by
-        have : LocallyConnectedSpace U := hU.locallyConnectedSpace
+      haveI : DiscreteTopology (ConnectedComponents U) := by
+        haveI : LocallyConnectedSpace U := hU.locallyConnectedSpace
         exact instDiscreteTopologyConnectedComponentsOfLocallyConnectedSpace
       exact isOpen_discrete {c}
     exact hcOpen.trans hU
@@ -387,9 +387,9 @@ lemma countable_of_minimal_open_cover {C : Set (Set X)} (hC : ⋃₀ C = univ)
   have : Countable b := hbCountable
   exact hgInj.countable
 
-/- Given an infinite open cover C of a connected space, and a finite subset
-   s ⊆ U whose union is preconnected, there is another set U ∈ C \ s whose
-   union with ⋃₀ s is connected. -/
+/- Given an infinite open cover C of a connected space by connected sets
+   and a finite subset s ⊆ C whose sUnion is preconnected, there is another
+   set U ∈ C \ s whose union with ⋃₀ s is connected. -/
 omit [SecondCountableTopology X] in
 lemma exists_open_intersecting_finite_union [ConnectedSpace X]
     {C : Set (Set X)} (hC : ⋃₀ C = univ) (hInf : Infinite C) (hOpen : ∀ U ∈ C, IsOpen U)
@@ -469,18 +469,16 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
     have hΩFin : Finite Ω := by apply Finite.Set.finite_image
     have hΩC : Ω ⊆ C := fun _ ⟨n, _, hnω⟩ => by simp_rw [← hnω, Subtype.coe_prop]
     have hΩConn : IsConnected (⋃₀ Ω) := by
-      simp only [Ω, sUnion_image]
-      exact hSConn
+      simpa only [Ω, sUnion_image] using hSConn
     obtain ⟨V, hVCS, hVConn⟩ := exists_open_intersecting_finite_union
       hC hInf hOpen hΩFin hΩC hΩConn hConn
     let n := U.symm ⟨V, mem_of_mem_inter_left hVCS⟩
     have hUn : ↑(U n) = V := by simp only [Equiv.symm_symm, Equiv.symm_apply_apply, U, n]
     have hnS : n ∉ S := by
-      by_contra h
-      have : V ∈ Ω := by
-        simp_rw [← hUn, Ω, mem_image]
-        use n
-      exact (notMem_of_mem_diff hVCS) this
+      by_contra _
+      apply (notMem_of_mem_diff hVCS)
+      simp_rw [← hUn, Ω, mem_image]
+      use n
     have hVS : {n} ∪ S ∈ Csub := by
       refine ⟨?_, ?_, ?_⟩
       · exact Nonempty.intro <| codRestrict (fun x ↦ n) ({n} ∪ S) (fun x ↦ mem_union_left S rfl) X
@@ -593,10 +591,8 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
       apply HasSubset.Subset.ssubset_of_mem_notMem
       · exact Subtype.coe_image_subset C (⇑U '' range j)
       · exact Subtype.coe_prop (U k)
-      · by_contra hh
-        have : U k ∈ U '' (range j) := by
-          obtain ⟨_, _, haVal⟩ := hh
-          rwa [← SetCoe.ext haVal]
+      · by_contra ⟨_, _, haVal⟩
+        have : U k ∈ U '' (range j) := by rwa [← SetCoe.ext haVal]
         exact (Iff.not U.injective.mem_set_image).mpr hk this
     have hC'_sUnion_proper : ⋃₀ C' ≠ univ := hMinimal C' hC'_ssubset_C
     have hC'_sUnion_open : IsOpen (⋃₀ C') := by
@@ -609,9 +605,7 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
       apply nonempty_sUnion.mpr
       use (U (j 0)).val
       constructor
-      · apply mem_image_of_mem Subtype.val
-        apply mem_image_of_mem U
-        exact mem_range_self 0
+      · exact mem_image_of_mem Subtype.val <| mem_image_of_mem U <| mem_range_self 0
       · exact (hConn (U (j 0)) <| Subtype.coe_prop (U (j 0))).nonempty
     /- Since ⋃₀ C' has nonempty frontier, we can take a point x in that
        frontier and find a set Ω = U n ∈ C containing it; note that Ω ∉ C' -/

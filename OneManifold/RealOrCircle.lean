@@ -22,8 +22,8 @@ lemma contains_open_circle {U : Set M} (hU : IsOpen U) (φ : U ≃ₜ Circle) :
     Nonempty (M ≃ₜ Circle) := by
   have hClosed : IsClosed U := by exact
     IsCompact.isClosed <| isCompact_iff_compactSpace.mpr φ.symm.compactSpace
-  have h := by exact isClopen_iff.mp ⟨hClosed, hU⟩
-  have : Nonempty U := by exact Nonempty.intro (φ.symm One.instNonempty.some)
+  have h := isClopen_iff.mp ⟨hClosed, hU⟩
+  have : Nonempty U := Nonempty.intro (φ.symm One.instNonempty.some)
   simp_all only [nonempty_iff_ne_empty', false_or]
   have : U ≃ₜ M := by
     rw [h]
@@ -43,7 +43,7 @@ lemma circle_union {U V : Set M} (hU : IsOpen U) (hV : IsOpen V)
 /- A space cannot be homeomorphic to both ℝ and a circle. -/
 lemma not_homeomorph_real_homeomorph_circle (X : Type*) [TopologicalSpace X] :
     ¬ ((Nonempty (X ≃ₜ ℝ)) ∧ (Nonempty (X ≃ₜ Circle))) := by
-  intro ⟨hR,hS⟩
+  intro ⟨hR, hS⟩
   let φ : Circle ≃ₜ ℝ := hS.some.symm.trans hR.some
   exact (not_compactSpace_iff.mpr instNoncompactSpaceReal) φ.compactSpace
 
@@ -131,8 +131,7 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
         apply mem_iUnion.mpr
         obtain ⟨j, Uj, ⟨⟨hjt, hij⟩, hxUj⟩⟩ := mem_iUnion.mp <| hUCover (mem_univ x)
         simp only at hij
-        use j
-        refine mem_iUnion_of_mem ?_ (by rwa [hij])
+        refine ⟨j, mem_iUnion_of_mem ?_ (by rwa [hij])⟩
         by_contra hjt'
         have : j = a := by
           apply Finset.mem_singleton.mp
@@ -199,7 +198,7 @@ theorem real_or_circle_of_finitely_covered_one_manifold [ChartedSpace ℝ¹ M]
           refine Finset.mem_erase.mpr ⟨Ne.symm (Ne.intro ?_), Finset.coe_mem b⟩
           simp only [SetLike.coe_eq_coe, hab, false_implies]
         exact subset_trans hUaVb <| subset_biUnion_of_mem hbt'
-      · refine iUnion₂_mono ?_
+      · apply iUnion₂_mono
         intro j _
         by_cases h : j = b
         · rw [h, hVb]
@@ -236,15 +235,14 @@ noncomputable instance chartedSpace_of_iUnion_of_opens {X H : Type*}
   let Uchart : ι → OpenPartialHomeomorph X H := by
     let incl (i : ι) : OpenPartialHomeomorph (U i) X := by
       haveI : Nonempty (U i) := Nonempty.intro <| (UHomeo i).symm hH.some
-      exact (IsOpen.isOpenEmbedding_subtypeVal (hUOpen i)).toOpenPartialHomeomorph
+      exact (hUOpen i).isOpenEmbedding_subtypeVal.toOpenPartialHomeomorph
     exact fun i => (incl i).symm.trans (UHomeo i).toOpenPartialHomeomorph
   have ExistsChartAt (x : X) : Nonempty {φ : OpenPartialHomeomorph X H | x ∈ φ.source} := by
     have : x ∈ ⋃ i, U i := by simp only [hUniv, mem_univ]
     obtain ⟨i, hi⟩ := mem_iUnion.mp this
-    refine Nonempty.intro ⟨Uchart i, ?_⟩
-    simpa [Uchart]
+    exact Nonempty.intro ⟨Uchart i, by simpa [Uchart]⟩
   exact {
-    atlas := {(ExistsChartAt x).some | x}
+    atlas := {(ExistsChartAt x).some | x},
     chartAt x := (ExistsChartAt x).some.val,
     mem_chart_source x := (ExistsChartAt x).some.property,
     chart_mem_atlas x := mem_setOf.mpr ⟨x, rfl⟩
