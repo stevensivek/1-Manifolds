@@ -6,7 +6,8 @@ import «OneManifold».RealLemmas
 /-!
 The main result of this file is `real_charts`, which takes a cover of a 1-manifold
 by charts that are homeomorphisms onto open subsets of ℝ and provides one where
-the homeomorphisms are onto all of ℝ.
+the charts are homeomorphisms from precompact sets (i.e., open sets with compact
+closure) onto all of ℝ.
 -/
 
 open Set Function Manifold
@@ -15,7 +16,7 @@ set_option linter.style.emptyLine false
 local macro:max "ℝ"n:superscript(term) : term => `(EuclideanSpace ℝ (Fin $(⟨n.raw[0]⟩)))
 
 /- Let M be a compact connected topological 1-dimensional manifold. -/
-variable (M : Type*) [TopologicalSpace M] [ChartedSpace ℝ¹ M]
+variable (M : Type*) [TopologicalSpace M] [ChartedSpace ℝ¹ M] [T2Space M]
 
 namespace OpenIntervalHomeomorphReal
 
@@ -112,14 +113,16 @@ theorem homeomorph_open_real {U : Set ℝ} (hOpen : IsOpen U) (hConn : IsConnect
 
 end OpenIntervalHomeomorphReal
 
-private class RealChart (p : M) where
+private class PrecompactRealChart (p : M) where
   U : Set M
   contains_x : p ∈ U
   isOpen : IsOpen U
   chartAt : U ≃ₜ ℝ
+  precompact : IsCompact (closure U)
 
-/-- Every point of a 1-manifold M has an open neighborhood homeomorphic to ℝ. -/
-private lemma chart_homeo_real (x : M) : Nonempty (RealChart M x) := by
+/-- Every point of a 1-manifold M has an open neighborhood that has compact
+    closure and is homeomorphic to ℝ. -/
+private lemma chart_homeo_real (x : M) : Nonempty (PrecompactRealChart M x) := by
   let φ : ℝ¹ ≃ₜ ℝ := (PiLp.homeomorph 2 (fun (_ : Fin 1) => ℝ)).trans
                     <| Homeomorph.funUnique (Fin 1) ℝ
   let ψ := (chartAt ℝ¹ x).transHomeomorph φ
@@ -127,37 +130,58 @@ private lemma chart_homeo_real (x : M) : Nonempty (RealChart M x) := by
   have hxψ : x ∈ ψ.source := by
     simp_all only [(chartAt ℝ¹ x).transHomeomorph_source, mem_chart_source, ψ]
 
-  have : ∃ (a : ℝ) (b : ℝ), a < b ∧ y ∈ (Ioo a b) ∧ (Ioo a b) ⊆ ψ.target := by
+  have : ∃ (a : ℝ) (b : ℝ), a < b ∧ y ∈ (Ioo a b) ∧ (Icc a b) ⊆ ψ.target := by
     have hyTarget : y ∈ ψ.target := ψ.map_source hxψ
     obtain ⟨W, hW, hyW, hWψ⟩ := (Real.isTopologicalBasis_Ioo_rat).exists_subset_of_mem_open
                                  hyTarget ψ.open_target
     simp only [mem_iUnion, mem_singleton_iff, exists_prop] at hW
-    obtain ⟨a, b, hab, hWIoo⟩ := hW
-    use a, b
-    refine ⟨Real.ratCast_lt.mpr hab, by rwa [hWIoo] at hyW, Eq.trans_subset (Eq.symm hWIoo) hWψ⟩
+    obtain ⟨c, d, hcd, hWIoo⟩ := hW
+    subst W
+    have hcy : (Ioo (c : ℝ) y).Nonempty := nonempty_Ioo.mpr (mem_Ioo.mp hyW).1
+    let a : ℝ := hcy.some
+    have hacy : a ∈ Ioo (c : ℝ) y := hcy.some_mem
+    have hyd : (Ioo y (d : ℝ)).Nonempty := nonempty_Ioo.mpr (mem_Ioo.mp hyW).2
+    let b : ℝ := hyd.some
+    have hbyd : b ∈ Ioo y (d : ℝ) := hyd.some_mem
+    refine ⟨a, b, lt_trans hacy.2 hbyd.1, mem_Ioo.mpr ⟨hacy.2, hbyd.1⟩, ?_⟩
+    apply subset_trans ?_ hWψ
+    exact fun _ ht => mem_Ioo.mpr ⟨lt_of_lt_of_le hacy.1 ht.1, lt_of_le_of_lt ht.2 hbyd.2⟩
 
-  obtain ⟨a,b,hab,hyab,habV⟩ := this
+  obtain ⟨a, b, hab, hyab, habV⟩ := this
+  have habV' : Ioo a b ⊆ ψ.target := subset_trans Ioo_subset_Icc_self habV
   let U' := ψ.symm '' (Ioo a b)
   have f : U' ≃ₜ (Ioo a b) := by
     apply ψ.homeomorphOfImageSubsetSource
-    · exact MapsTo.image_subset <| fun _ p ↦ ψ.symm_mapsTo (habV p)
-    · exact LeftInvOn.image_image <| fun _ ht => ψ.right_inv (habV ht)
+    · exact MapsTo.image_subset <| fun _ p ↦ ψ.symm_mapsTo (habV' p)
+    · exact LeftInvOn.image_image <| fun _ ht => ψ.right_inv (habV' ht)
+  have hCompactClosure : IsCompact (closure U') := by
+    have hIccCompact : IsCompact (closure (Ioo a b)) := by
+      rw [closure_Ioo <| ne_of_lt hab]
+      exact isCompact_Icc
+    have hContOn : ContinuousOn ψ.symm (closure (Ioo a b)) := by
+      apply ψ.symm.continuousOn.mono
+      rwa [closure_Ioo <| ne_of_lt hab, ψ.symm_source]
+    rw [← image_closure_of_isCompact hIccCompact hContOn]
+    exact hIccCompact.image_of_continuousOn hContOn
 
-  let chart : RealChart M x := {
+  let chart : PrecompactRealChart M x := {
     U : Set M := U',
     contains_x : x ∈ U' := by
       apply (mem_image ψ.symm (Ioo a b) x).mpr
       use y
       exact ⟨hyab, ψ.left_inv hxψ⟩,
-    isOpen : IsOpen U' := ψ.isOpen_image_symm_of_subset_target isOpen_Ioo habV,
+    isOpen : IsOpen U' := ψ.isOpen_image_symm_of_subset_target isOpen_Ioo habV',
     chartAt := f.trans <| OpenIntervalHomeomorphReal.homeomorph_Ioo_real hab
+    precompact := hCompactClosure
   }
   exact Nonempty.intro chart
 
-/-- Package the homeomorphisms to ℝ at each point into a function -/
+/-- Produce a function associating to each point x ∈ M a real chart
+    that contains x. -/
 lemma real_charts : ∃ U : M → Set M,
-    (∀ x, x ∈ U x) ∧ (∀ x, IsOpen (U x)) ∧ (∀ x, Nonempty ((U x) ≃ₜ ℝ)) := by
+    (∀ x, x ∈ U x) ∧ (∀ x, IsOpen (U x)) ∧ (∀ x, Nonempty ((U x) ≃ₜ ℝ))
+    ∧ (∀ x, IsCompact (closure (U x))):= by
   let f := fun p => (chart_homeo_real M p).some
   use fun p => (f p).U
   exact ⟨fun x => (f x).contains_x, fun x => (f x).isOpen,
-         fun x => Nonempty.intro (f x).chartAt⟩
+         fun x => Nonempty.intro (f x).chartAt, fun x => (f x).precompact⟩
