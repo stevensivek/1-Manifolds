@@ -127,6 +127,47 @@ lemma compact_real_classification {U : Set ℝ} (hUCompact : IsCompact U) (hUCon
       (isCompact_univ_iff.mp hUCompact)
   · exact False.elim <| hNE (mem_singleton_iff.mp h) -- ∅
 
+lemma Iic_ne_Icc {a b c : ℝ} : Iic a ≠ Icc b c := by
+  let d : ℝ := min a b - 1
+  have : d ∈ Iic a := by
+    apply mem_Iic.mpr <| le_of_lt ?_
+    exact lt_of_le_of_lt (tsub_le_tsub_right (min_le_left a b) 1) (sub_one_lt a)
+  apply Membership.mem.ne_of_notMem' this <| notMem_Icc_of_lt ?_
+  exact lt_of_le_of_lt (tsub_le_tsub_right (min_le_right a b) 1) (sub_one_lt b)
+
+lemma Ici_ne_Icc {a b c : ℝ} : Ici a ≠ Icc b c := by
+  let d : ℝ := max a c + 1
+  have : d ∈ Ici a := by
+    apply mem_Ici.mpr <| le_of_lt ?_
+    exact lt_of_lt_of_le (lt_add_one a) (add_le_add_left (le_max_left a c) 1)
+  apply Membership.mem.ne_of_notMem' this <| notMem_Icc_of_gt ?_
+  exact lt_of_lt_of_le (lt_add_one c) <| add_le_add_left (le_max_right a c) 1
+
+lemma Icc_ne_univ {a b : ℝ} : Icc a b ≠ univ := by
+  have : b + 1 ∉ Icc a b := notMem_Icc_of_gt <| lt_add_one b
+  exact Ne.symm <| Membership.mem.ne_of_notMem' (mem_univ (b + 1)) this
+
+lemma closure_eq_Icc_iff {U : Set ℝ} (hOpen : IsOpen U) (hConnected : IsConnected U)
+    {a b : ℝ} : closure U = Icc a b ↔ U = Ioo a b := by
+  constructor <;> intro hU
+  · rcases open_real_classification hOpen hConnected with h | h | h | h
+    · obtain ⟨c, d, hIoo⟩ := h
+      by_cases hcd : c < d
+      · rw [hIoo, closure_Ioo <| ne_of_lt hcd] at hU
+        obtain ⟨hca, hdb⟩ := (Icc_eq_Icc_iff <| le_of_lt hcd).mp hU
+        rwa [← hca, ← hdb]
+      · rw [Ioo_eq_empty_of_le <| not_lt.mp hcd] at hIoo
+        apply False.elim <| (not_nonempty_iff_eq_empty.mpr hIoo) hConnected.nonempty
+    · obtain ⟨a, hIio⟩ := h
+      rw [hIio, closure_Iio] at hU
+      exact False.elim <| Iic_ne_Icc hU
+    · obtain ⟨b, hIoi⟩ := h
+      rw [hIoi, closure_Ioi] at hU
+      exact False.elim <| Ici_ne_Icc hU
+    · rw [h, closure_univ] at hU
+      exact False.elim <| (Ne.symm Icc_ne_univ) hU
+  · rw [hU] at hConnected ⊢
+    exact closure_Ioo <| ne_of_lt <| nonempty_Ioo.mp hConnected.nonempty
 
 lemma compl_Icc {𝕜 : Type*} [LinearOrder 𝕜] {s t : 𝕜} : (Icc s t)ᶜ = (Iio s) ∪ (Ioi t) := by
   apply compl_inj_iff.mp

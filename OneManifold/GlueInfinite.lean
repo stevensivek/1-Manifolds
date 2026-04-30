@@ -3,6 +3,7 @@ import Mathlib.Topology.OpenPartialHomeomorph.Composition
 import «OneManifold».RealLemmas
 
 open Set Function Topology
+set_option linter.style.emptyLine false
 
 lemma homeomorph_real_real_fix_two_points {a b α β : ℝ} (hab : a ≠ b) (hαβ : α ≠ β) :
     ∃ f : ℝ ≃ₜ ℝ, f α = a ∧ f β = b := by
@@ -67,44 +68,16 @@ lemma choose_homeo {X : Type*} [TopologicalSpace X] {U V : Set X}
     rw [hfSource]
     exact Subset.trans subset_closure hSubset
   have hfUConnected : IsConnected (f '' U) := hUConn.image f (hfCont.mono subset_closure)
-  have hfU_Ioo : f '' U = Ioo c d := by
-    have hfU_Ioo_subset : f '' U ⊆ Ioo c d := by
-      rw [← interior_Icc]
-      apply hfUOpen.subset_interior_iff.mpr
-      exact subset_of_subset_of_eq (image_mono subset_closure) hIcc
-    rcases open_real_classification hfUOpen hfUConnected with h | h | h | h
-    · obtain ⟨a, b, hIoo⟩ := h
-      have hab : a < b := by
-        apply nonempty_Ioo.mp
-        rw [← hIoo]
-        exact nonempty_of_mem <| mem_image_of_mem f <| Subtype.coe_prop (hUReal.some.symm 0)
-      rw [hIoo] at hfU_Ioo_subset
-      obtain ⟨hca, hbd⟩ := (Ioo_subset_Ioo_iff hab).mp hfU_Ioo_subset
-      have : f '' (closure U) ⊆ closure (f '' U) := hfCont.image_closure
-      rw [hIcc, hIoo, closure_Ioo (ne_of_lt hab)] at this
-      obtain ⟨hac, hdb⟩ := (Icc_subset_Icc_iff hcd).mp this
-      rwa [ge_antisymm hca hac, ge_antisymm hdb hbd] at hIoo
-    · obtain ⟨a, hIio⟩ := h
-      rw [hIio] at hfU_Ioo_subset
-      have : min (a - 1) c ∈ Ioo c d :=
-        hfU_Ioo_subset <| mem_Iio.mpr <| lt_of_le_of_lt (min_le_left _ _) (sub_one_lt a)
-      exact False.elim <|
-        (lt_self_iff_false c).mp <| lt_of_lt_of_le this.1 (min_le_right (a - 1) c)
-    · obtain ⟨b, hIoi⟩ := h
-      rw [hIoi] at hfU_Ioo_subset
-      have : max (b + 1) d ∈ Ioo c d :=
-        hfU_Ioo_subset <| mem_Ioi.mpr <| lt_of_lt_of_le (lt_add_one b) (le_max_left _ _)
-      exact False.elim <|
-        (lt_self_iff_false d).mp <| lt_of_le_of_lt (le_max_right _ _) this.2
-    · rw [h] at hfU_Ioo_subset
-      exact False.elim <| (lt_self_iff_false c).mp (hfU_Ioo_subset (mem_univ c)).1
+  have hClosure_f : closure (f '' U) = Icc c d := by
+    rwa [← image_closure_of_isCompact hCompact hfCont]
+  have hfU_Ioo : f '' U = Ioo c d := (closure_eq_Icc_iff hfUOpen hfUConnected).mp hClosure_f
   have hcd' : c < d := by
     apply nonempty_Ioo.mp
     rw [← hfU_Ioo]
     exact nonempty_of_mem <| mem_image_of_mem f <| Subtype.coe_prop (hUReal.some.symm 0)
 
   -- Now f '' U = Ioo c d.  We want φ : X → ℝ defined on V to send
-  -- closure U to Icc a b.  We already have f : X → ℝ, and we want to
+  -- closure U to Icc a b.  We already have f : X → ℝ, so we want to
   -- postcompose with ψ such that ψ c = a and ψ d = b
   obtain ⟨ψ, hψc, hψd⟩ := homeomorph_real_real_fix_two_points (ne_of_lt hab) (ne_of_lt hcd')
   use f.trans ψ.toOpenPartialHomeomorph
@@ -116,15 +89,13 @@ lemma choose_homeo {X : Type*} [TopologicalSpace X] {U V : Set X}
     rw [← hψc, ← hψd]
     rcases ψ.continuous.strictMono_of_inj ψ.injective with hMono | hAnti
     · apply Subset.antisymm
-      · intro s ⟨t, ht, hψt⟩
-        rw [← hψt]
-        exact ⟨hMono.monotone ht.1, hMono.monotone ht.2⟩
-      · have : ContinuousOn ψ (Icc c d) :=
-          (continuousOn_univ.mpr ψ.continuous).mono (by apply subset_univ)
-        exact intermediate_value_Icc hcd this
-    · have : ψ d < ψ c := hAnti hcd'
-      rw [hψc, hψd] at this
-      exact False.elim <| (lt_self_iff_false a).mp <| lt_trans hab this
+      · exact fun _ ⟨_, ht, hψt⟩ => mem_of_eq_of_mem (Eq.symm hψt)
+          <| mem_Icc.mpr ⟨hMono.monotone ht.1, hMono.monotone ht.2⟩
+      · exact intermediate_value_Icc hcd
+          <| (continuousOn_univ.mpr ψ.continuous).mono (by apply subset_univ)
+    · apply False.elim <| (lt_self_iff_false a).mp <| lt_trans hab ?_
+      rw [← hψc, ← hψd]
+      exact hAnti hcd'
 
 /- Given a strictly increasing chain f 0 ⊂ f 1 ⊂ f 2 ⊂ of subsets of X, there
    is a function g : ℕ → X such that each g n belongs to f n but not (assuming
