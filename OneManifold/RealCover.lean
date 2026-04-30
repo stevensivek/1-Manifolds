@@ -137,15 +137,10 @@ private lemma chart_homeo_real (x : M) : Nonempty (PrecompactRealChart M x) := b
     simp only [mem_iUnion, mem_singleton_iff, exists_prop] at hW
     obtain ⟨c, d, hcd, hWIoo⟩ := hW
     subst W
-    have hcy : (Ioo (c : ℝ) y).Nonempty := nonempty_Ioo.mpr (mem_Ioo.mp hyW).1
-    let a : ℝ := hcy.some
-    have hacy : a ∈ Ioo (c : ℝ) y := hcy.some_mem
-    have hyd : (Ioo y (d : ℝ)).Nonempty := nonempty_Ioo.mpr (mem_Ioo.mp hyW).2
-    let b : ℝ := hyd.some
-    have hbyd : b ∈ Ioo y (d : ℝ) := hyd.some_mem
-    refine ⟨a, b, lt_trans hacy.2 hbyd.1, mem_Ioo.mpr ⟨hacy.2, hbyd.1⟩, ?_⟩
+    obtain ⟨⟨a, hacd, hay⟩, ⟨b, hbcd, hyb⟩⟩ := lt_gt_of_open_interval isOpen_Ioo hyW
+    refine ⟨a, b, lt_trans hay hyb, mem_Ioo.mpr ⟨hay, hyb⟩, ?_⟩
     apply subset_trans ?_ hWψ
-    exact fun _ ht => mem_Ioo.mpr ⟨lt_of_lt_of_le hacy.1 ht.1, lt_of_le_of_lt ht.2 hbyd.2⟩
+    exact fun _ ht => mem_Ioo.mpr ⟨lt_of_lt_of_le hacd.1 ht.1, lt_of_le_of_lt ht.2 hbcd.2⟩
 
   obtain ⟨a, b, hab, hyab, habV⟩ := this
   have habV' : Ioo a b ⊆ ψ.target := subset_trans Ioo_subset_Icc_self habV

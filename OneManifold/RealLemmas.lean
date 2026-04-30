@@ -3,10 +3,10 @@ import Mathlib.Tactic -- import all the tactics
 open Set
 
 /- If x lies in an open set U ⊆ ℝ, then there are y, z ∈ U with y < x < z. -/
-lemma lt_gt_of_open_interval {U : Set ℝ} (hAOpen : IsOpen U) {x : ℝ} (hx : x ∈ U) :
+lemma lt_gt_of_open_interval {U : Set ℝ} (hUOpen : IsOpen U) {x : ℝ} (hx : x ∈ U) :
     (∃ y ∈ U, y < x) ∧ (∃ z ∈ U, x < z) := by
   have hBasis := Real.isTopologicalBasis_Ioo_rat
-  obtain ⟨V, hV, ⟨hxV, hVA⟩⟩ := hBasis.exists_subset_of_mem_open hx hAOpen
+  obtain ⟨V, hV, ⟨hxV, hVA⟩⟩ := hBasis.exists_subset_of_mem_open hx hUOpen
   simp only [mem_iUnion, mem_singleton_iff, exists_prop] at hV
   obtain ⟨a, b, _, _⟩ := hV
   subst V
