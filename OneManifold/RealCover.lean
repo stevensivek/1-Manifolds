@@ -92,7 +92,7 @@ theorem homeomorph_open_real {U : Set ℝ} (hOpen : IsOpen U) (hConn : IsConnect
     let φ := Real.expPartialHomeomorph.toHomeomorphSourceTarget
     rw [Real.expPartialHomeomorph_source, Real.expPartialHomeomorph_target] at φ
     exact φ.symm.trans <| Homeomorph.Set.univ ℝ
-  rcases (open_real_classification U hOpen hConn) with h | h | h | h
+  rcases (open_real_classification hOpen hConn) with h | h | h | h
   · obtain ⟨a, b, hIoo⟩ := h
     rw [hIoo]
     have hab : a < b := by
@@ -103,7 +103,7 @@ theorem homeomorph_open_real {U : Set ℝ} (hOpen : IsOpen U) (hConn : IsConnect
     exact Nonempty.intro <| homeomorph_Ioo_real hab
   · obtain ⟨a, hIio⟩ := h
     rw [hIio]
-    have φ : Iio a ≃ₜ Ioi (0 : ℝ) := (homeomorph_neg_Iio a).trans (homeomorph_Ioi_Ioi (-a))
+    let φ : Iio a ≃ₜ Ioi (0 : ℝ) := (homeomorph_neg_Iio a).trans (homeomorph_Ioi_Ioi (-a))
     exact Nonempty.intro <| φ.trans expHomeo
   · obtain ⟨a, hIoi⟩ := h
     rw [hIoi]

@@ -195,15 +195,13 @@ lemma intersection_intervals {U V : Set X}
     obtain ⟨Ω, hΩ, hSΩ⟩ := hOpen_V
     obtain ⟨W, hW, hSW⟩ := hClosed_V
 
-    have hVΩOpen : IsOpen (V ∩ Ω) := by
-      exact IsOpen.inter hV hΩ
-    have hVWOpen : IsOpen (V ∩ Wᶜ) := by
-      exact IsOpen.inter hV IsClosed.isOpen_compl
+    have hVΩOpen : IsOpen (V ∩ Ω) := IsOpen.inter hV hΩ
+    have hVWOpen : IsOpen (V ∩ Wᶜ) := IsOpen.inter hV IsClosed.isOpen_compl
     have hDisjoint : Disjoint (V ∩ Ω) (V ∩ Wᶜ) := by
       have hSc : V ∩ Wᶜ ⊆ Sᶜ := by
         rw [hSW, compl_inter V W]
         exact subset_union_of_subset_right inter_subset_right Vᶜ
-      have hS : V ∩ Ω ⊆ S := by exact Eq.subset (Eq.symm hSΩ)
+      have hS : V ∩ Ω ⊆ S := Eq.subset (Eq.symm hSΩ)
       have : Disjoint S Sᶜ := by
         exact disjoint_compl_right_iff_subset.mpr fun _ t ↦ t
       exact fun s hsΩ hsW ↦ this (fun _ t ↦ hS (hsΩ t)) (fun _ t ↦ hSc (hsW t))
@@ -234,11 +232,11 @@ lemma intersection_intervals {U V : Set X}
     exact hNotVU this
 
   let C := connectedComponentIn I x
-  obtain h := open_real_classification C hφInter_open.connectedComponentIn
+  obtain h := open_real_classification hφInter_open.connectedComponentIn
                                     <| isConnected_connectedComponentIn_iff.mpr hx
   have hCNotIoo : ¬(∃ a b : ℝ, C = Ioo a b) := by
     by_contra! h
-    obtain ⟨a,b,hCab⟩ := h
+    obtain ⟨a, b, hCab⟩ := h
     by_cases hab : a < b
     · exact hInterval x a b hab hCab
     · have h1 : C = ∅ := by
@@ -251,7 +249,7 @@ lemma intersection_intervals {U V : Set X}
     have : C ⊆ I := by exact connectedComponentIn_subset I x
     rw [h] at this
     exact hφInter_proper <| univ_subset_iff.mp this
-  simp only [hCNotIoo, hCNotUniv, false_or, or_false] at h
+  simp only [C, hCNotIoo, hCNotUniv, false_or, or_false] at h
   exact h
 
 /- If φ : U → ℝ and ψ : V → ℝ cover X, then the component of φ '' (U ∩ V)

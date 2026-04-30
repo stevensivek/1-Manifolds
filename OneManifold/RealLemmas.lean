@@ -63,7 +63,7 @@ lemma not_Icc_of_open {U : Set ℝ} (hUOpen : IsOpen U) (hANonempty : U.Nonempty
 
 /- An nonempty, open, connected set in ℝ must have one of the following forms:
    (a, b), (-∞, a), (b, ∞), or ℝ. -/
-lemma open_real_classification (U : Set ℝ) (hUOpen : IsOpen U) (hUConn : IsConnected U) :
+lemma open_real_classification {U : Set ℝ} (hUOpen : IsOpen U) (hUConn : IsConnected U) :
     (∃ a b, U = Ioo a b) ∨ (∃ a, U = Iio a) ∨ (∃ b, U = Ioi b) ∨ (U = univ) := by
   have hRC := hUConn.isPreconnected.mem_intervals
   simp only [Set.mem_insert_iff, Set.mem_singleton_iff,
@@ -78,6 +78,55 @@ lemma open_real_classification (U : Set ℝ) (hUOpen : IsOpen U) (hUConn : IsCon
   · simp only [exists_apply_eq_apply', true_or, or_true]
   · simp only [exists_apply_eq_apply', true_or, or_true]
   · simp only [or_true]
+
+lemma compact_real_classification {U : Set ℝ} (hUCompact : IsCompact U) (hUConn : IsConnected U) :
+    ∃ a b : ℝ, (a ≤ b ∧ U = Icc a b) := by
+  have hRC := hUConn.isPreconnected.mem_intervals
+  have hNE : U ≠ ∅ := Ne.symm <| nonempty_iff_empty_ne.mp hUConn.nonempty
+  have hInf {x : ℝ} : x ∈ U → sInf U ≤ x := by
+    obtain ⟨hLB, _⟩ := Real.isGLB_sInf hUConn.nonempty hUCompact.bddBelow
+    exact mem_lowerBounds.mp hLB x
+  have hSup {x : ℝ} : x ∈ U → x ≤ sSup U := by
+    obtain ⟨hUB, _⟩ := Real.isLUB_sSup hUConn.nonempty hUCompact.bddAbove
+    exact mem_upperBounds.mp hUB x
+  have hle : sInf U ≤ sSup U := Real.sInf_le_sSup U hUCompact.bddBelow hUCompact.bddAbove
+  refine ⟨sInf U, sSup U, hle, ?_⟩
+  rcases hRC with h | h | h | h | h | h | h | h | h | h <;> rw [h] at hUCompact
+  · exact h -- Icc
+  · -- Ico
+    apply False.elim <| hNE <| Eq.trans h ?_
+    exact Ico_eq_empty <| not_lt.mpr <| isCompact_Ico_iff.mp hUCompact
+  · -- Ioc
+    apply False.elim <| hNE <| Eq.trans h ?_
+    exact Ioc_eq_empty <| not_lt.mpr <| isCompact_Ioc_iff.mp hUCompact
+  · -- Ioo
+    apply False.elim <| hNE <| Eq.trans h ?_
+    exact Ioo_eq_empty <| not_lt.mpr <| isCompact_Ioo_iff.mp hUCompact
+  · -- Ici
+    apply False.elim <| (lt_self_iff_false <| sSup U).mp ?_
+    apply lt_of_lt_of_le (lt_add_one _) <| hSup ?_
+    nth_rewrite 1 [h]
+    exact mem_Ici.mpr <| le_of_lt <| lt_of_le_of_lt hle <| lt_add_one (sSup U)
+  ·  -- Ioi
+    apply False.elim <| (lt_self_iff_false <| sSup U).mp ?_
+    apply lt_of_lt_of_le (lt_add_one _) <| hSup ?_
+    nth_rewrite 1 [h]
+    exact mem_Ioi.mpr <| lt_of_le_of_lt hle <| lt_add_one (sSup U)
+  · -- Iic
+    apply False.elim <| (lt_self_iff_false <| sInf U).mp ?_
+    apply lt_of_le_of_lt (hInf ?_) (sub_one_lt _)
+    nth_rewrite 1 [h]
+    exact mem_Iic.mpr <| le_of_lt <| lt_of_lt_of_le (sub_one_lt _) <| hle
+  · -- Iio
+    apply False.elim <| (lt_self_iff_false <| sInf U).mp ?_
+    apply lt_of_le_of_lt (hInf ?_) (sub_one_lt _)
+    nth_rewrite 1 [h]
+    exact mem_Iio.mpr <| lt_of_lt_of_le (sub_one_lt _) hle
+  · -- univ
+    exact False.elim <| (not_compactSpace_iff.mpr instNoncompactSpaceReal)
+      (isCompact_univ_iff.mp hUCompact)
+  · exact False.elim <| hNE (mem_singleton_iff.mp h) -- ∅
+
 
 lemma compl_Icc {𝕜 : Type*} [LinearOrder 𝕜] {s t : 𝕜} : (Icc s t)ᶜ = (Iio s) ∪ (Ioi t) := by
   apply compl_inj_iff.mp
