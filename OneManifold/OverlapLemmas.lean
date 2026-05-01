@@ -39,7 +39,7 @@ lemma intersection_intervals {U V : Set X}
     (∃ a : ℝ, connectedComponentIn (φ '' (U ∩ V)) x = Iio a)
     ∨ (∃ a : ℝ, connectedComponentIn (φ '' (U ∩ V)) x = Ioi a) := by
   have hU : IsOpen U := by rw [← hφSource]; exact φ.open_source
-  have hUV : IsOpen (U ∩ V) := by exact IsOpen.inter hU hV
+  have hUV : IsOpen (U ∩ V) := IsOpen.inter hU hV
   let I : Set ℝ := φ '' (U ∩ V)
   have hφInter_open : IsOpen I := by
     apply φ.isOpen_image_of_subset_source hUV
@@ -65,10 +65,9 @@ lemma intersection_intervals {U V : Set X}
     replace hxI : x ∈ I := by exact not_notMem.mp hxI
 
     let S := φ.source ∩ φ ⁻¹' (Ioo a b)
-    have hSOpen : IsOpen S := by
-      exact φ.isOpen_inter_preimage isOpen_Ioo
+    have hSOpen : IsOpen S := φ.isOpen_inter_preimage isOpen_Ioo
     have hSNonempty : Nonempty S := by
-      have hIoo : Nonempty (Ioo a b) := by exact nonempty_Ioo_subtype hab
+      have hIoo : Nonempty (Ioo a b) := nonempty_Ioo_subtype hab
       let c : ℝ := hIoo.some
       let s := φ.symm c
       have h1 : s ∈ φ.source := by
@@ -94,12 +93,10 @@ lemma intersection_intervals {U V : Set X}
           apply mem_Ico_of_Ioo
           rw [← hx]
           exact mem_connectedComponentIn hxI
-        have hIcoIoo : Ico a b ⊆ connectedComponentIn I x := by
-          exact isPreconnected_Ico.subset_connectedComponentIn this hIcoSubset
+        have hIcoIoo : Ico a b ⊆ connectedComponentIn I x :=
+          isPreconnected_Ico.subset_connectedComponentIn this hIcoSubset
         rw [hx] at hIcoIoo
-        have : a ∉ Ioo a b := by
-          simp only [mem_Ioo, lt_self_iff_false, false_and, not_false_eq_true]
-        exact this (hIcoIoo <| left_mem_Ico.mpr hab)
+        exact (notMem_Ioo_of_le <| le_refl a) (hIcoIoo <| left_mem_Ico.mpr hab)
 
       have hbI : b ∉ I := by
         by_contra! hb
@@ -115,30 +112,27 @@ lemma intersection_intervals {U V : Set X}
         have hIcoIoo : Ioc a b ⊆ connectedComponentIn I x := by
           exact isPreconnected_Ioc.subset_connectedComponentIn this hIocSubset
         rw [hx] at hIcoIoo
-        have : b ∉ Ioo a b := by
-          simp only [mem_Ioo, lt_self_iff_false, and_false, not_false_eq_true]
-        exact this (hIcoIoo <| right_mem_Ioc.mpr hab)
+        exact (notMem_Ioo_of_ge <| le_refl b) (hIcoIoo <| right_mem_Ioc.mpr hab)
 
       have hφ_neq_val {y : X} {c : ℝ} (hc : c ∉ I) : y ∈ φ.source → φ y = c → y ∉ V := by
         intro hysource hφy
-        by_contra! hyV
-        have hyUV : y ∈ U ∩ V := by
-          apply mem_inter ?_ hyV
-          rwa [← hφSource]
-        exact hc (show c ∈ I by rw [← hφy]; exact mem_image_of_mem φ hyUV)
+        by_contra hyV
+        have hyUV : y ∈ U ∩ V := by apply mem_inter (by rwa [← hφSource]) hyV
+        subst c
+        exact hc <| mem_image_of_mem φ hyUV
 
       have : φ.source ∩ V ∩ φ ⁻¹' (Icc a b) = φ.source ∩ V ∩ φ ⁻¹' (Ioo a b) := by
         apply Subset.antisymm_iff.mpr
         constructor
         · rintro t ⟨htUV,htφ⟩
           obtain ⟨htU, htV⟩ := (mem_inter_iff t φ.source V).mp htUV
-          have hta : φ t ≠ a := by exact fun s ↦ hφ_neq_val haI htU s htV
-          have htb : φ t ≠ b := by exact fun s ↦ hφ_neq_val hbI htU s htV
+          have hta : φ t ≠ a := fun s ↦ hφ_neq_val haI htU s htV
+          have htb : φ t ≠ b := fun s ↦ hφ_neq_val hbI htU s htV
           have : φ t ∈ Ioo a b := by
             obtain ⟨hle, hge⟩ := htφ
             exact ⟨lt_of_le_of_ne hle (Ne.symm hta), lt_of_le_of_ne hge htb⟩
           exact mem_inter htUV this
-        · exact inter_subset_inter (fun _ c ↦ c) <| preimage_mono Ioo_subset_Icc_self
+        · exact inter_subset_inter (Subset.refl _) <| preimage_mono Ioo_subset_Icc_self
 
       rw [← hφSource, this]
       unfold S
@@ -166,15 +160,11 @@ lemma intersection_intervals {U V : Set X}
           · exact mem_of_mem_inter_left ht
         exact fun _ t ↦ this (hφinv t)
 
-    have hOpen_V : ∃ Ω : Set X, IsOpen Ω ∧ S = V ∩ Ω := by
-      use S
-      constructor
-      · exact hSOpen
-      · have : S ⊆ U ∩ V := by
-          rw [hIcc]
-          exact inter_subset_left
-        exact Eq.symm <| inter_eq_self_of_subset_right
-                      <| fun _ t ↦ inter_subset_right (this t)
+    have hS_V_inter_Ω : S = V ∩ S := by
+      apply Eq.symm <| inter_eq_self_of_subset_right ?_
+      rw [hIcc, inter_comm]
+      exact subset_trans inter_subset_right <| inter_subset_right (s := U)
+    have hOpen_V : ∃ Ω : Set X, IsOpen Ω ∧ S = V ∩ Ω := ⟨S, hSOpen, hS_V_inter_Ω⟩
 
     have hIccTarget : Icc a b ⊆ φ.target := by
       rw [hφTarget]
@@ -190,7 +180,7 @@ lemma intersection_intervals {U V : Set X}
       · rw [hIcc]
         nth_rewrite 2 [inter_comm]
         nth_rewrite 1 [← inter_assoc]
-        simp only
+        rfl
 
     obtain ⟨Ω, hΩ, hSΩ⟩ := hOpen_V
     obtain ⟨W, hW, hSW⟩ := hClosed_V
@@ -202,23 +192,20 @@ lemma intersection_intervals {U V : Set X}
         rw [hSW, compl_inter V W]
         exact subset_union_of_subset_right inter_subset_right Vᶜ
       have hS : V ∩ Ω ⊆ S := Eq.subset (Eq.symm hSΩ)
-      have : Disjoint S Sᶜ := by
-        exact disjoint_compl_right_iff_subset.mpr fun _ t ↦ t
+      have : Disjoint S Sᶜ := disjoint_compl_right_iff_subset.mpr fun _ t ↦ t
       exact fun s hsΩ hsW ↦ this (fun _ t ↦ hS (hsΩ t)) (fun _ t ↦ hSc (hsW t))
 
     have hVCover : V ⊆ (V ∩ Ω) ∪ (V ∩ Wᶜ) := by
       rw [← inter_union_distrib_left V Ω Wᶜ]
-      apply subset_inter (fun _ t ↦ t)
+      apply subset_inter (Subset.refl V)
       intro v hv
       apply (mem_union v Ω Wᶜ).mpr
       by_cases hs : v ∈ S
       · left
-        rw [hSΩ] at hs
-        exact mem_of_mem_inter_right hs
+        exact mem_of_mem_inter_right (by rwa [hSΩ] at hs)
       · right
-        rw [hSW] at hs
-        obtain := Classical.not_and_iff_not_or_not.mp hs
-        simp_all only [mem_compl_iff, not_true_eq_false, false_or, not_false_eq_true]
+        have := Classical.not_and_iff_not_or_not.mp (by rwa [hSW] at hs)
+        simpa only [hv, not_true, false_or] using this
 
     have : V ⊆ S := by
       rw [hSΩ]
@@ -238,19 +225,15 @@ lemma intersection_intervals {U V : Set X}
     by_contra! h
     obtain ⟨a, b, hCab⟩ := h
     by_cases hab : a < b
-    · exact hInterval x a b hab hCab
-    · have h1 : C = ∅ := by
-        rw [hCab]
-        exact Ioo_eq_empty_of_le <| le_of_not_gt hab
-      have : x ∈ C := by exact mem_connectedComponentIn hx
-      rwa [h1] at this
+    · exact (hInterval x a b hab) hCab
+    · apply (mem_empty_iff_false x).mp
+      rw [← Ioo_eq_empty_of_le <| le_of_not_gt hab, ← hCab]
+      exact mem_connectedComponentIn hx
   have hCNotUniv : ¬(C = univ) := by
     by_contra! h
-    have : C ⊆ I := by exact connectedComponentIn_subset I x
-    rw [h] at this
-    exact hφInter_proper <| univ_subset_iff.mp this
-  simp only [C, hCNotIoo, hCNotUniv, false_or, or_false] at h
-  exact h
+    apply hφInter_proper (univ_subset_iff.mp ?_)
+    exact subset_trans (univ_subset_iff.mpr h) (connectedComponentIn_subset I x)
+  simpa only [C, hCNotIoo, hCNotUniv, false_or, or_false] using h
 
 /- If φ : U → ℝ and ψ : V → ℝ cover X, then the component of φ '' (U ∩ V)
    containing some fixed point φ y is a half-infinite interval.  We can ensure
@@ -275,9 +258,7 @@ lemma choose_intersection_component_left {U V : Set X}
     have hφ'Target : φ'.target = univ := by
       rw [← hφTarget]
       simp_all only [φ.transHomeomorph_target, preimage_univ, φ']
-    use φ'
-    refine ⟨hφ'Source, hφ'Target, ?_⟩
-    use (- a)
+    refine ⟨φ', hφ'Source, hφ'Target, - a, ?_⟩
 
     have : connectedComponentIn (φ' '' (U ∩ V)) (φ' y) =
           mneg1 '' connectedComponentIn (φ '' (U ∩ V)) (φ y) := by
@@ -288,8 +269,7 @@ lemma choose_intersection_component_left {U V : Set X}
       rw [← this, mneg1.image_connectedComponentIn hφy]
     rw [this]
     have : mneg1 '' (Ioi a) = Iio (- a) := by
-      simp_all only [mem_image, mem_inter_iff, Homeomorph.coe_neg,
-        image_neg_eq_neg, neg_Ioi, mneg1]
+      simp_all only [Homeomorph.coe_neg, image_neg_eq_neg, neg_Ioi, mneg1]
     rw [← this]
     exact congrArg (image mneg1) ha
 
@@ -316,9 +296,7 @@ lemma choose_intersection_component_right {U V : Set X}
     have hφ'Target : φ'.target = univ := by
       rw [← hφTarget]
       simp_all only [φ.transHomeomorph_target, preimage_univ, φ']
-    use φ'
-    refine ⟨hφ'Source, hφ'Target, ?_⟩
-    use (- a)
+    refine ⟨φ', hφ'Source, hφ'Target, - a, ?_⟩
 
     have : connectedComponentIn (φ' '' (U ∩ V)) (φ' y) =
           mneg1 '' connectedComponentIn (φ '' (U ∩ V)) (φ y) := by
@@ -329,8 +307,7 @@ lemma choose_intersection_component_right {U V : Set X}
       rw [← this, mneg1.image_connectedComponentIn hφy]
     rw [this]
     have : mneg1 '' (Iio a) = Ioi (- a) := by
-      simp_all only [mem_image, mem_inter_iff, Homeomorph.coe_neg,
-        image_neg_eq_neg, neg_Iio, mneg1]
+      simp_all only [Homeomorph.coe_neg, image_neg_eq_neg, neg_Iio, mneg1]
     rw [← this]
     exact congrArg (image mneg1) ha
 
@@ -348,13 +325,12 @@ lemma nonempty_inter_connected_open_cover {Y : Type*} [TopologicalSpace Y] [Conn
     simp_all only [univ_inter, empty_subset, not_true_eq_false]
   obtain h := isPreconnected_univ.subset_left_of_subset_union
               hU hV hDisjoint (univ_subset_iff.mpr hUniv) hUNonempty
-  exact hNotVU <| fun _ _ ↦ h trivial
+  exact hNotVU <| subset_trans (subset_univ V) h
 
 /- Given two sets, either one is contained in the other or neither is. -/
 lemma cover_nested_or_not {Y : Type*} (U V : Set Y) :
     U ⊆ V ∨ V ⊆ U ∨ (¬(U ⊆ V) ∧ ¬(V ⊆ U)) := by
-  by_contra! h
-  obtain ⟨_,_,_⟩ := h
+  by_contra! ⟨_, _, _⟩
   simp_all only [not_false_eq_true, not_true_eq_false]
 
 /- The series of lemmas below are aimed at establishing `monotone_iio_to_ioi`,
@@ -445,7 +421,7 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
       intro t ht
       by_cases hta : t = a
       · rwa [hta]
-      · have : t ∈ Iio a := by exact lt_of_le_of_ne ht hta
+      · have : t ∈ Iio a := lt_of_le_of_ne ht hta
         rw [← hφInter] at this
         exact connectedComponentIn_subset (φ '' (U ∩ V)) (φ y) this
     have hφy : φ y ∈ Iic a := by
@@ -455,8 +431,7 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
     have : Iic a ⊆ Iio a := by
       rw [← hφInter]
       exact isPreconnected_Iic.subset_connectedComponentIn hφy hIic
-    have : a ∈ Iio a := by exact this self_mem_Iic
-    exact (LE.le.not_gt <| Preorder.le_refl a) this
+    exact (not_lt_of_ge <| le_refl a) (this self_mem_Iic)
 
   have hb : b ∉ ψ '' (U ∩ V) := by
     by_contra hb'
@@ -464,7 +439,7 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
       intro t ht
       by_cases htb : t = b
       · rwa [htb]
-      · have : t ∈ Ioi b := by exact lt_of_le_of_ne ht fun τ ↦ htb (Eq.symm τ)
+      · have : t ∈ Ioi b := lt_of_le_of_ne ht fun τ ↦ htb (Eq.symm τ)
         rw [← hψInter] at this
         exact connectedComponentIn_subset (ψ '' (U ∩ V)) (ψ y) this
     have hψy : ψ y ∈ Ici b := by
@@ -474,8 +449,7 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
     have : Ici b ⊆ Ioi b := by
       rw [← hψInter]
       exact isPreconnected_Ici.subset_connectedComponentIn hψy hIci
-    have : b ∈ Ioi b := by exact this self_mem_Ici
-    exact (LE.le.not_gt <| Preorder.le_refl b) this
+    exact (LE.le.not_gt <| Preorder.le_refl b) (this self_mem_Ici)
 
   have : Iio a ⊆ f.source := by
     have : Iio a ⊆ φ.symm.source := by
@@ -485,21 +459,18 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
       rw [← hφInter]
       exact connectedComponentIn_subset (φ '' (U ∩ V)) (φ y)
     have h₂ : φ '' (U ∩ V) ⊆ φ.symm ⁻¹' (U ∩ V) := by
-      intro t ⟨s, _, _⟩
+      intro t ⟨s, hsUV, _⟩
       subst t
       apply mem_preimage.mpr
-      rwa [φ.left_inv <| show s ∈ φ.source by simp_all]
+      rwa [φ.left_inv <| (subset_of_subset_of_eq inter_subset_left (Eq.symm hφSource)) hsUV]
     exact Subset.trans (Subset.trans h₁ h₂) <| preimage_mono inter_subset_right
-  have hfInj : InjOn f (Iio a) := by exact InjOn.mono this f.injOn
-  have hfCont : ContinuousOn f (Iio a) := by exact f.continuousOn.mono this
+  have hfInj : InjOn f (Iio a) := InjOn.mono this f.injOn
+  have hfCont : ContinuousOn f (Iio a) := f.continuousOn.mono this
 
-  have hf'Cont (c : ℝ) : ContinuousOn f (Ioo c a) := by
-    exact hfCont.mono Ioo_subset_Iio_self
-  have hf'Inj (c : ℝ) : InjOn f (Ioo c a) := by
-    exact hfInj.mono Ioo_subset_Iio_self
-  have hMonoAnti {c : ℝ} (hc : c < a) :
-      StrictMonoOn f (Ioo c a) ∨ StrictAntiOn f (Ioo c a) := by
-    exact (hf'Cont c).strictMonoOn_of_injOn_Ioo hc (hf'Inj c)
+  have hf'Cont (c : ℝ) : ContinuousOn f (Ioo c a) := hfCont.mono Ioo_subset_Iio_self
+  have hf'Inj (c : ℝ) : InjOn f (Ioo c a) := hfInj.mono Ioo_subset_Iio_self
+  have hMonoAnti {c : ℝ} (hc : c < a) : StrictMonoOn f (Ioo c a) ∨ StrictAntiOn f (Ioo c a) :=
+    (hf'Cont c).strictMonoOn_of_injOn_Ioo hc (hf'Inj c)
 
   -- If f : (-∞,a) → (b,∞) is strictly decreasing, then φ.symm a and ψ.symm b
   -- are distinct points without disjoint neighborhoods, contradicting `T2Space Y`.
@@ -511,37 +482,32 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
     have hαβ : α ≠ β := by
       have hCnotUV : α ∉ U ∩ V := by
         have : φ α = a := by simp_all [α]
-        by_contra hα
         have : φ α ∉ φ '' (U ∩ V) := by rwa [this]
-        exact this <| mem_image_of_mem φ hα
+        exact fun hα => this <| mem_image_of_mem φ hα
       have : α ∈ U := by
         simp only [← hφSource, α]
         apply φ.map_target
-        rw [hφTarget]
-        exact trivial
-      have hαV : α ∉ V := by
-        by_contra hαV'
-        exact hCnotUV <| mem_inter this hαV'
+        simp only [hφTarget, mem_univ]
+      have hαV : α ∉ V := fun hαV' => hCnotUV <| mem_inter this hαV'
       have hβV : β ∈ V := by
         simp only [← hψSource, β]
         apply ψ.map_target
-        rw [hψTarget]
-        exact trivial
+        simp only [hψTarget, mem_univ]
       exact Ne.symm <| ne_of_mem_of_not_mem hβV hαV
 
     obtain ⟨Uα₀, Uβ₀, hUα₀Open, hUβ₀Open, hα₀u, hβ₀u, hDisjoint₀⟩ :=
       ((t2Space_iff Y).mp instT2) hαβ
 
     let Uα := Uα₀ ∩ φ.source
-    have hUαOpen : IsOpen Uα := by exact hUα₀Open.inter φ.open_source
+    have hUαOpen : IsOpen Uα := hUα₀Open.inter φ.open_source
     have hαu : α ∈ Uα := by
-      refine mem_inter hα₀u ?_
+      apply mem_inter hα₀u
       subst hφSource
       simp_all only [mem_univ, φ.map_target, α, Uα]
     let Uβ := Uβ₀ ∩ ψ.source
-    have hUβOpen : IsOpen Uβ := by exact hUβ₀Open.inter ψ.open_source
+    have hUβOpen : IsOpen Uβ := hUβ₀Open.inter ψ.open_source
     have hβu : β ∈ Uβ := by
-      refine mem_inter hβ₀u ?_
+      apply mem_inter hβ₀u
       subst hψSource
       simp_all only [mem_univ, ψ.map_target, β, Uβ]
     have hDisjoint : Disjoint Uα Uβ := by
@@ -552,21 +518,17 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
     have {W : Set Y} {x : ℝ} {η : OpenPartialHomeomorph Y ℝ} (hη : η.target = univ) :
         W ∈ nhds (η.symm x) → ∃ ε > 0, Ioo (x - ε) (x + ε) ⊆ η '' W := by
       intro hW
-      have hx_source : η.symm x ∈ η.source := by
-        exact η.map_target <| by simp_all only [mem_univ]
+      have hx_source : η.symm x ∈ η.source := η.map_target <| by simp_all only [mem_univ]
       have hx_target : x ∈ η.target := by simp only [hη, mem_univ]
-      have : η.source ∈ nhds (η.symm x) := by exact η.open_source.mem_nhds_iff.mpr hx_source
+      have : η.source ∈ nhds (η.symm x) := η.open_source.mem_nhds_iff.mpr hx_source
       have : η '' (η.source ∩ W) ∈ nhds x := by
         rw [show x = η (η.symm x) by simp_all]
         exact η.image_mem_nhds hx_source <| Filter.inter_mem this hW
       obtain ⟨ε, hε, hηW'⟩ := nhd_real_contains_interval this
-      use ε
-      refine ⟨hε, ?_⟩
+      refine ⟨ε, hε, ?_⟩
       intro t ht
-      apply (mem_image η W t).mpr
-      obtain ⟨y, hηW, hηx⟩ := by exact hηW' ht
-      use y
-      exact ⟨mem_of_mem_inter_right hηW, hηx⟩
+      obtain ⟨y, hηW, hηx⟩ := hηW' ht
+      exact (mem_image η W t).mpr ⟨y, mem_of_mem_inter_right hηW, hηx⟩
     -- some ε-neighborhood of a is contained in φ '' Uα
     obtain ⟨ε, hε, haε⟩ := this hφTarget <| hUαOpen.mem_nhds hαu
     -- some ε'-neighborhood of b is contained in φ '' Uβ
@@ -582,7 +544,7 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
       η.symm '' (Ioo (c - δ) (c + δ)) ⊆ U ∩ η.source := by
       let Uη := U ∩ η.source
       have : η.symm '' (η '' Uη) ⊆ Uη := by
-        have hUη_ηSource : Uη ⊆ η.source := by exact inter_subset_right
+        have hUη_ηSource : Uη ⊆ η.source := inter_subset_right
         intro x ⟨t, htη, htx⟩
         have : t ∈ η.target := by
           rw [← η.image_source_eq_target]
@@ -604,26 +566,25 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
       exact this <| mem_image_of_mem η.symm (hcδ htη)
 
     have hc_nhd : φ.symm '' (Ioo (a - ε) a) ⊆ Uα := by
-      have : Ioo (a - ε) a ⊆ Ioo (a - ε) (a + ε) := by
-        exact fun x hx ↦ ⟨hx.1, lt_add_of_lt_of_pos hx.2 hε⟩
+      have : Ioo (a - ε) a ⊆ Ioo (a - ε) (a + ε) :=
+        Ioo_subset_Ioo (le_refl _) (le_of_lt <| lt_add_of_pos_right a hε)
       apply Subset.trans <| image_mono this
       exact nhd_in_source a ε Uα₀ haε
 
     have hd_nhd : ψ.symm '' (Ioo b (b + ε')) ⊆ Uβ := by
-      have : Ioo b (b + ε') ⊆ Ioo (b - ε') (b + ε') := by
-        exact fun x hx ↦ ⟨gt_trans hx.1 <| sub_lt_self b hε', hx.2⟩
+      have : Ioo b (b + ε') ⊆ Ioo (b - ε') (b + ε') :=
+        Ioo_subset_Ioo (le_of_lt <| sub_lt_self b hε') (le_refl _)
       apply Subset.trans <| image_mono this
       exact nhd_in_source b ε' Uβ₀ hbε'
 
     clear this nhd_in_source hUα₀Open hUβ₀Open hα₀u hβ₀u hDisjoint₀
 
     have hfaε' : f '' (Ioo (a - ε) a) ⊆ ψ '' Uα := by
-      obtain := image_mono hc_nhd (f := ψ)
+      have := image_mono hc_nhd (f := ψ)
       simp_all [f, ← image_comp]
 
     have hfIoo : f '' (Ioo (a - ε) a) ⊆ ψ '' (U ∩ V) := by
-      have hM : MapsTo f (Ioo (a - ε) a) (Ioi b) := by
-        exact fun _ hx ↦ hf_MapsTo hx.2
+      have hM : MapsTo f (Ioo (a - ε) a) (Ioi b) := fun _ hx ↦ hf_MapsTo hx.2
       have : Ioi b ⊆ ψ '' (U ∩ V) := by
         rw [← hψInter]
         exact connectedComponentIn_subset (ψ '' (U ∩ V)) (ψ y)
@@ -653,60 +614,43 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
     have hDisjoint' {s t : Y} :
         s ∈ φ.symm '' (Ioo (a - ε) a) → t ∈ ψ.symm '' (Ioo b (b + ε')) → ψ s ≠ ψ t := by
       intro hs ht
-      have hsSource : s ∈ ψ.source := by
-        apply hφsymmIio_source
-        exact image_mono Ioo_subset_Iio_self hs
+      have hsSource : s ∈ ψ.source := hφsymmIio_source <| image_mono Ioo_subset_Iio_self hs
       have htSource : t ∈ ψ.source := by
-        rw [← ψ.symm_target]
         have : t ∈ ψ.symm '' ψ.symm.source := by
-          have : Ioo b (b + ε') ⊆ ψ.symm.source := by
-            rw [ψ.symm_source, hψTarget]
-            exact fun _ _ ↦ trivial
-          exact (image_mono this) ht
-        rwa [ψ.symm.image_source_eq_target] at this
-      have hsUα : s ∈ Uα := by exact hc_nhd hs
-      have htUβ : t ∈ Uβ := by exact hd_nhd ht
-      have hst : s ≠ t := by exact disjoint_iff_forall_ne.mp hDisjoint hsUα htUβ
-      by_contra h
-      exact hst <| ψ.injOn hsSource htSource h
+          apply (image_mono ?_) ht
+          simp only [ψ.symm_source, hψTarget, subset_univ]
+        rwa [ψ.symm.image_source_eq_target, ψ.symm_target] at this
+      have hst : s ≠ t := disjoint_iff_forall_ne.mp hDisjoint (hc_nhd hs) (hd_nhd ht)
+      exact ψ.injOn.ne hsSource htSource hst
 
     have hf_intervals_disjoint {x y : ℝ} :
         x ∈ Ioo (a - ε) a → y ∈ Ioo b (b + ε') → f x ≠ y := by
       intro hx hy
-      obtain hψ := hDisjoint' (mem_image_of_mem φ.symm hx) (mem_image_of_mem ψ.symm hy)
-      have : ψ (ψ.symm y) = y := by
-        apply (ψ.injective_symm_of_target_eq_univ hψTarget).eq_iff.mp
-        apply ψ.left_inv
-        rw [← ψ.symm_target]
-        apply ψ.symm.mapsTo
-        simp only [ψ.symm_source, hψTarget, mem_univ]
-      rwa [show ψ (φ.symm x) = f x by rfl, this] at hψ
+      have hψ := hDisjoint' (mem_image_of_mem φ.symm hx) (mem_image_of_mem ψ.symm hy)
+      have : ψ (ψ.symm y) = y := ψ.right_inv (by simp only [hψTarget, mem_univ])
+      rwa [this] at hψ
 
     have {x : ℝ} : x ∈ Ioo (c - 1) a → f x ≥ b + ε' := by
       intro hx
       by_contra hf
-      have hfx : f x ∈ Ioo b (b + ε') := by exact ⟨hf_MapsTo hx.2, by linarith⟩
+      have hfx : f x ∈ Ioo b (b + ε') := mem_Ioo.mpr ⟨hf_MapsTo hx.2, lt_of_not_ge hf⟩
       by_cases hx' : x > a - ε
       · exact (hf_intervals_disjoint ⟨hx', hx.2⟩ hfx) rfl
       · let a' := max (a - ε) (c - 1)
-        have : a' < a := by
-          exact max_lt_iff.mpr ⟨sub_lt_self a hε, LT.lt.trans hx.1 hx.2⟩
+        have : a' < a := max_lt_iff.mpr ⟨sub_lt_self a hε, LT.lt.trans hx.1 hx.2⟩
         have : Nonempty (Ioo a' a) := nonempty_Ioo_subtype this
         let y : ℝ := this.some.val
         have hy : y ∈ Ioo a' a := this.some.coe_prop
         have hxy : x < y := by
-          apply LE.le.trans_lt (le_of_not_gt hx')
-          exact LE.le.trans_lt (le_max_left (a - ε) (c - 1)) hy.1
-        have hfxy : f x > f y := by
-          exact h hx ⟨LT.lt.trans hx.1 hxy, hy.2⟩ hxy
-        have hy' : y ∈ Ioo (a - ε) a := by
-          exact ⟨LE.le.trans_lt (le_max_left (a - ε) (c - 1)) hy.1, hy.2⟩
-        have hfy' : f y ∈ Ioo b (b + ε') := by
-          exact ⟨hf_MapsTo hy.2, LT.lt.trans hfxy hfx.2⟩
+          apply lt_of_le_of_lt (le_of_not_gt hx')
+          exact lt_of_le_of_lt (le_max_left (a - ε) (c - 1)) hy.1
+        have hfxy : f x > f y := h hx ⟨lt_trans hx.1 hxy, hy.2⟩ hxy
+        have hy' : y ∈ Ioo (a - ε) a :=
+          ⟨lt_of_le_of_lt (le_max_left (a - ε) (c - 1)) hy.1, hy.2⟩
+        have hfy' : f y ∈ Ioo b (b + ε') := ⟨hf_MapsTo hy.2, LT.lt.trans hfxy hfx.2⟩
         exact hf_intervals_disjoint hy' hfy' rfl
 
-    use ε'
-    exact ⟨hε', fun _ ht ↦ this ht⟩
+    exact ⟨ε', hε', fun _ ht ↦ this ht⟩
 
   -- Now we can prove that f is strictly monotone on (-∞, a)
   by_contra h
@@ -719,60 +663,48 @@ lemma monotone_iio_to_ioi {Y : Type*} [TopologicalSpace Y] [instT2 : T2Space Y]
   have hMca : ¬ StrictMonoOn f (Ioo (c - 1) a) := by
     unfold StrictMonoOn
     push Not
-    use c
-    constructor
-    · exact ⟨sub_one_lt c, hc⟩
-    · use d
-      exact ⟨⟨LT.lt.trans (sub_one_lt c) hcd, hd⟩, ⟨hcd, hfcd⟩⟩
+    refine ⟨c, mem_Ioo.mpr ⟨sub_one_lt c, hc⟩, d, ?_, hcd, hfcd⟩
+    exact mem_Ioo.mpr ⟨lt_trans (sub_one_lt c) hcd, hd⟩
   -- f isn't strictly monotone on (c - 1, a), so it must be strictly antitone.
   simp only [hMca, false_or] at hMA
   -- We've seen that this means f sends (c - 1, a) into [b + δ, ∞) where δ > 0
   obtain ⟨δ, hδ, hmaps⟩ := antiOn_sup_ge_b hc hMA
 
-  have : ∃ w ∈ Iio a, f w < b + δ := by
-    have : Nonempty (Ioo b (b + δ)) := by
-      exact nonempty_Ioo_subtype <| lt_add_of_pos_right b hδ
+  obtain ⟨w, hw, hfwbδ⟩ : ∃ w ∈ Iio a, f w < b + δ := by
+    have : Nonempty (Ioo b (b + δ)) := nonempty_Ioo_subtype <| lt_add_of_pos_right b hδ
     let z := this.some.val
-    have hz : z ∈ Ioo b (b + δ) := by exact this.some.coe_prop
+    have hz : z ∈ Ioo b (b + δ) := this.some.coe_prop
     have : ∃ w ∈ Iio a, f w = z := by
       have : z ∈ Ioi b := by exact hz.1
       rwa [← hf_Iio_image] at this
     obtain ⟨w, hw, hfw⟩ := this
-    use w
-    rw [hfw]
-    exact ⟨hw, hz.2⟩
-  obtain ⟨w, hw, hfwbδ⟩ := this
+    exact ⟨w, hw, lt_of_le_of_lt (le_of_eq hfw) hz.2⟩
 
   -- Now f w < b + δ, but f ≥ b + δ on all of (c - 1,a) by hmaps, so w ≤ c - 1.
   -- Thus w < c < d, and f w < f d ≤ f c implies that f is neither
   -- strictly monotone nor strictly antitone on (w - 1, a).
 
-  have : w ≤ c - 1 := by
+  have hwc1 : w ≤ c - 1 := by
     by_contra hw_gt
-    exact (LE.le.not_gt <| hmaps ⟨lt_of_not_ge hw_gt, hw⟩) hfwbδ
+    exact (not_lt_of_ge <| hmaps ⟨lt_of_not_ge hw_gt, hw⟩) hfwbδ
+  have hw1c : w - 1 < c := lt_trans (sub_one_lt w) <| lt_of_le_of_lt hwc1 (sub_one_lt c)
 
   -- f is either strictly monotone or strictly antitone on (w - 1, a)
-  obtain hMA' := hMonoAnti <| LT.lt.trans (sub_one_lt w) hw
+  obtain hMA' := hMonoAnti <| lt_trans (sub_one_lt w) hw
 
   -- Not strictly monotone, because c < d but f d ≤ f c
   have hNotMono : ¬ StrictMonoOn f (Ioo (w - 1) a) := by
     unfold StrictMonoOn
     push Not
-    use c
-    refine ⟨⟨by linarith, hc⟩, ?_⟩
-    use d
-    exact ⟨⟨by linarith, hd⟩, ⟨hcd, hfcd⟩⟩
+    exact ⟨c, mem_Ioo.mpr ⟨hw1c, hc⟩, d, mem_Ioo.mpr ⟨lt_trans hw1c hcd, hd⟩, hcd, hfcd⟩
 
   -- Not strictly antitone, because w < d but f w ≤ f d
   have hNotAnti : ¬ StrictAntiOn f (Ioo (w - 1) a) := by
     unfold StrictAntiOn
     push Not
-    use w
-    refine ⟨⟨sub_one_lt w, hw⟩, ?_⟩
-    use c
-    constructor
-    · exact ⟨by linarith, hc⟩
-    · exact ⟨by linarith, LE.le.trans (le_of_lt hfwbδ) <| hmaps ⟨sub_one_lt c, hc⟩⟩
+    refine ⟨w, mem_Ioo.mpr ⟨sub_one_lt w, hw⟩, c, mem_Ioo.mpr ⟨hw1c, hc⟩, ?_, ?_⟩
+    · exact lt_of_le_of_lt hwc1 (sub_one_lt c)
+    · exact le_trans (le_of_lt hfwbδ) <| hmaps ⟨sub_one_lt c, hc⟩
 
   simp only [hNotMono, hNotAnti, false_or] at hMA'
 
@@ -787,10 +719,10 @@ lemma connectedComponentIn_split {t : X} {U V : Set X} (ht : t ∈ U ∩ V)
     connectedComponentIn (U ∩ V) t = φ.symm '' (Ico (φ t) a) ∪ ψ.symm '' (Ioc b (ψ t)) := by
   let Cφ := connectedComponentIn (φ '' (U ∩ V)) (φ t)
   let Cψ := connectedComponentIn (ψ '' (U ∩ V)) (ψ t)
-  have hφ_symm_apply_apply {z : X} : z ∈ U ∩ V → φ.symm (φ z) = z := by
-    exact fun _ ↦ by simp_all only [mem_inter_iff, φ.left_inv]
-  have hψ_symm_apply_apply {z : X} : z ∈ U ∩ V → ψ.symm (ψ z) = z := by
-    exact fun _ ↦ by simp_all only [mem_inter_iff, ψ.left_inv]
+  have hφ_symm_apply_apply {z : X} : z ∈ U ∩ V → φ.symm (φ z) = z :=
+    fun _ ↦ by simp_all only [mem_inter_iff, φ.left_inv]
+  have hψ_symm_apply_apply {z : X} : z ∈ U ∩ V → ψ.symm (ψ z) = z :=
+    fun _ ↦ by simp_all only [mem_inter_iff, ψ.left_inv]
   have hφta : φ t ∈ Iio a := by
     rw [← hφ]
     exact mem_connectedComponentIn <| mem_image_of_mem φ ht
@@ -803,7 +735,7 @@ lemma connectedComponentIn_split {t : X} {U V : Set X} (ht : t ∈ U ∩ V)
       apply connectedComponentIn_nonempty_iff.mp
       rw [← connectedComponentIn_eq hs]
       exact connectedComponentIn_nonempty_iff.mpr ht
-    have : φ s ∈ φ '' (U ∩ V) := by exact mem_image_of_mem (↑φ) hsUV
+    have : φ s ∈ φ '' (U ∩ V) := mem_image_of_mem (↑φ) hsUV
     have hConn_φ : IsConnected (φ '' (connectedComponentIn (U ∩ V) t)) := by
       have : ContinuousOn φ (connectedComponentIn (U ∩ V) t) := by
         apply φ.continuousOn.mono
@@ -819,40 +751,33 @@ lemma connectedComponentIn_split {t : X} {U V : Set X} (ht : t ∈ U ∩ V)
     have hφ_ccI : φ '' (connectedComponentIn (U ∩ V) t) ⊆ Cφ := by
       apply hConn_φ.isPreconnected.subset_connectedComponentIn
             (mem_image_of_mem φ <| mem_connectedComponentIn ht) (F := φ '' (U ∩ V))
-      apply image_mono
-      exact connectedComponentIn_subset (U ∩ V) t
+      exact image_mono <| connectedComponentIn_subset (U ∩ V) t
     have hψ_ccI : ψ '' (connectedComponentIn (U ∩ V) t) ⊆ Cψ := by
       apply hConn_ψ.isPreconnected.subset_connectedComponentIn
             (mem_image_of_mem ψ <| mem_connectedComponentIn ht) (F := ψ '' (U ∩ V))
-      apply image_mono
-      exact connectedComponentIn_subset (U ∩ V) t
+      exact image_mono <| connectedComponentIn_subset (U ∩ V) t
     have hφs_a : φ s ∈ Cφ := hφ_ccI <| mem_image_of_mem φ hs
     simp only [Cφ, hφ, mem_union] at hφs_a ⊢
     by_cases hφs : φ s ≥ φ t
     · left
-      have : φ s ∈ Ico (φ t) a := ⟨hφs, hφs_a⟩
-      apply mem_image_of_mem φ.symm at this
-      rwa [hφ_symm_apply_apply hsUV] at this
+      rw [← hφ_symm_apply_apply hsUV]
+      exact mem_image_of_mem φ.symm <| mem_Ico.mpr ⟨hφs, hφs_a⟩
     · right
       rw [← hψ_symm_apply_apply hsUV]
-      apply mem_image_of_mem ψ.symm
-      constructor
+      apply mem_image_of_mem ψ.symm <| mem_Ioc.mpr ⟨?_, le_of_lt ?_⟩
       · apply mem_Ioi.mp
         rw [← hψ]
         exact hψ_ccI <| mem_image_of_mem ψ hs
-      · apply le_of_lt
-        have hψst : (φ.symm.trans ψ) (φ s) < (φ.symm.trans ψ) (φ t) :=
+      · have hψst : (φ.symm.trans ψ) (φ s) < (φ.symm.trans ψ) (φ t) :=
           (monotone_iio_to_ioi hφSource hφTarget hψSource hψTarget ht hφ hψ)
           hφs_a hφta (lt_of_not_ge hφs)
         rwa [φ.symm.trans_apply, hφ_symm_apply_apply hsUV,
               φ.symm.trans_apply, hφ_symm_apply_apply ht] at hψst
   · simp only [mem_union] at hs
-    rcases hs with h | h <;> obtain ⟨r,hr,hrs⟩ := h
+    rcases hs with h | h <;> obtain ⟨r, hr, hrs⟩ := h
     · have hconn : IsConnected (φ.symm '' (Ico (φ t) a)) := by
-        apply (isConnected_Ico hφta).image φ.symm
-        apply φ.symm.continuousOn.mono
-        rw [φ.symm_source, hφTarget]
-        exact fun _ _ ↦ trivial
+        apply (isConnected_Ico hφta).image φ.symm <| φ.symm.continuousOn.mono ?_
+        simp only [φ.symm_source, hφTarget, subset_univ]
       have hs_mem : s ∈ (φ.symm '' (Ico (φ t) a)) := by
         rw [← hrs]
         exact mem_image_of_mem φ.symm hr
@@ -860,20 +785,16 @@ lemma connectedComponentIn_split {t : X} {U V : Set X} (ht : t ∈ U ∩ V)
         nth_rewrite 2 [← hφ_symm_apply_apply ht]
         exact mem_image_of_mem φ.symm <| left_mem_Ico.mpr hφta
       have : φ.symm '' (Ico (φ t) a) ⊆ U ∩ V := by
-        have : φ.symm '' (Ico (φ t) a) ⊆ φ.symm '' (Iio a) := by
-          exact image_mono <| fun _ h ↦ h.2
-        apply subset_trans this
+        apply subset_trans <| image_mono <| fun _ h ↦ mem_Iio.mpr h.2
         rw [← hφ]
         apply subset_trans <| image_mono <| connectedComponentIn_subset (φ '' (U ∩ V)) (φ t)
         rw [← image_comp]
-        exact fun _ ⟨_,hq,hqr⟩ ↦ by rwa [← hqr, comp_apply, hφ_symm_apply_apply hq]
+        exact fun _ ⟨_, hq, hqr⟩ ↦ by rwa [← hqr, comp_apply, hφ_symm_apply_apply hq]
       exact (hconn.isPreconnected.subset_connectedComponentIn ht_mem this) hs_mem
 
     · have hconn : IsConnected (ψ.symm '' (Ioc b (ψ t))) := by
-        apply (isConnected_Ioc hψtb).image ψ.symm
-        apply ψ.symm.continuousOn.mono
-        rw [ψ.symm_source, hψTarget]
-        exact fun _ _ ↦ trivial
+        apply (isConnected_Ioc hψtb).image ψ.symm <| ψ.symm.continuousOn.mono ?_
+        simp only [ψ.symm_source, hψTarget, subset_univ]
       have hs_mem : s ∈ (ψ.symm '' (Ioc b (ψ t))) := by
         rw [← hrs]
         exact mem_image_of_mem ψ.symm hr
@@ -881,13 +802,11 @@ lemma connectedComponentIn_split {t : X} {U V : Set X} (ht : t ∈ U ∩ V)
         nth_rewrite 2 [← hψ_symm_apply_apply ht]
         exact mem_image_of_mem ψ.symm <| right_mem_Ioc.mpr hψtb
       have : ψ.symm '' (Ioc b (ψ t)) ⊆ U ∩ V := by
-        have : ψ.symm '' (Ioc b (ψ t)) ⊆ ψ.symm '' (Ioi b) := by
-          exact image_mono <| fun _ h ↦ h.1
-        apply subset_trans this
+        apply subset_trans <| image_mono <| fun _ h ↦ mem_Ioi.mpr h.1
         rw [← hψ]
         apply subset_trans <| image_mono <| connectedComponentIn_subset (ψ '' (U ∩ V)) (ψ t)
         rw [← image_comp]
-        exact fun _ ⟨_,hq,hqr⟩ ↦ by rwa [← hqr, comp_apply, hψ_symm_apply_apply hq]
+        exact fun _ ⟨_, hq, hqr⟩ ↦ by rwa [← hqr, comp_apply, hψ_symm_apply_apply hq]
       exact (hconn.isPreconnected.subset_connectedComponentIn ht_mem this) hs_mem
 
 /- Given a point t in some component of the intersection of two real charts
@@ -902,10 +821,10 @@ lemma overlap_intersection {s t : X} {U V : Set X} {a b : ℝ}
     (hsCpt : s ∈ connectedComponentIn (U ∩ V) t)
     (hsUV : s ∈ U ∩ V) (hs : s ∈ φ.symm '' (Ici (φ t)) ∩ ψ.symm '' (Iic (ψ t))) :
     s = t := by
-  have hφ_symm_apply_apply {z : X} : z ∈ U ∩ V → φ.symm (φ z) = z := by
-    exact fun _ ↦ by simp_all only [mem_inter_iff, φ.left_inv]
-  have hψ_symm_apply_apply {z : X} : z ∈ U ∩ V → ψ.symm (ψ z) = z := by
-    exact fun _ ↦ by simp_all only [mem_inter_iff, ψ.left_inv]
+  have hφ_symm_apply_apply {z : X} : z ∈ U ∩ V → φ.symm (φ z) = z :=
+    fun _ ↦ by simp_all only [mem_inter_iff, φ.left_inv]
+  have hψ_symm_apply_apply {z : X} : z ∈ U ∩ V → ψ.symm (ψ z) = z :=
+    fun _ ↦ by simp_all only [mem_inter_iff, ψ.left_inv]
   have hφsymm_inj : Injective φ.symm := φ.injective_symm_of_target_eq_univ hφTarget
   have hψsymm_inj : Injective ψ.symm := ψ.injective_symm_of_target_eq_univ hψTarget
 
@@ -915,13 +834,10 @@ lemma overlap_intersection {s t : X} {U V : Set X} {a b : ℝ}
     rw [← htφ, ← hφ_symm_apply_apply hsUV]
     apply mem_image_of_mem φ.symm
     apply mem_image_of_mem φ at hsCpt
-    have : φ '' connectedComponentIn (U ∩ V) t ⊆
-            connectedComponentIn (φ '' (U ∩ V)) (φ t) := by
+    have : φ '' connectedComponentIn (U ∩ V) t ⊆ connectedComponentIn (φ '' (U ∩ V)) (φ t) := by
       have hcont : ContinuousOn φ (connectedComponentIn (U ∩ V) t) := by
         apply ContinuousOn.mono ?_ <| connectedComponentIn_subset (U ∩ V) t
-        apply φ.continuousOn.mono
-        rw [hφSource]
-        exact inter_subset_left
+        exact φ.continuousOn.mono <| subset_of_subset_of_eq inter_subset_left (Eq.symm hφSource)
       exact (isPreconnected_connectedComponentIn.image φ hcont).subset_connectedComponentIn
             (mem_image_of_mem φ <| mem_connectedComponentIn ht)
             (image_mono <| connectedComponentIn_subset (U ∩ V) t)
@@ -929,16 +845,15 @@ lemma overlap_intersection {s t : X} {U V : Set X} {a b : ℝ}
 
   by_contra hst
   have hψs_le_ψx : ψ s ≤ ψ t := by
-    have : s ∈ ψ.symm '' (Iic (ψ t)) :=  mem_of_mem_inter_right hs
-    rw [← hψ_symm_apply_apply hsUV] at this
-    exact mem_Iic.mp <| hψsymm_inj.mem_set_image.mp this
+    apply mem_Iic.mp <| hψsymm_inj.mem_set_image.mp ?_
+    rw [hψ_symm_apply_apply hsUV]
+    exact mem_of_mem_inter_right hs
 
   obtain ⟨r, hr, hrs⟩ := mem_of_mem_inter_left hs
   have : φ t < r := by
     apply lt_of_le_of_ne hr <| Ne.symm ?_
     by_contra hrφx
-    apply congrArg φ.symm at hrφx
-    exact hst <| by rwa [hrs, hφ_symm_apply_apply ht] at hrφx
+    exact hst <| Eq.trans (Eq.trans (Eq.symm hrs) (congrArg φ.symm hrφx)) (hφ_symm_apply_apply ht)
   have : ψ t < (φ.symm.trans ψ) r := by
     rw [← hfφt]
     have hMono : StrictMonoOn (φ.symm.trans ψ) (Iio a) :=
