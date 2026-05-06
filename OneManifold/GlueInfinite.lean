@@ -1,5 +1,5 @@
 import Mathlib.Tactic
-import Mathlib.Topology.OpenPartialHomeomorph.Composition
+import «OneManifold».GluePartialHomeomorph
 import «OneManifold».RealCover
 import «OneManifold».RealLemmas
 
