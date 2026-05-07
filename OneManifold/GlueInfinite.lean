@@ -285,6 +285,21 @@ lemma increasing_oriented_interval_homeos {X : Type*} [TopologicalSpace X] {U : 
     · exact fun hn => by simp_rw [(φ n).transHomeomorph_apply, Homeomorph.coe_neg,
         comp_apply, ← image_image, hφClosure hn, image_neg_eq_neg, neg_Icc, neg_neg]
 
+-- lemma stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] [T2Space X]
+--     {U : ℕ → Set X} (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
+--     (hPrecompact : ∀ n, IsCompact (closure (U n)))
+--     (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
+--     False := by
+--   obtain ⟨φ, x, hx, y, hy, hφ⟩ := increasing_oriented_interval_homeos
+--     hOpen hReal hPrecompact hExhaustion
+--   replace hx : ∀ n, x ∈ U n :=
+--     fun n => subset_of_increasing_chain hExhaustion 0 n (Nat.zero_le n) hx
+--   replace hy : ∀ n, y ∈ U n :=
+--     fun n => subset_of_increasing_chain hExhaustion 0 n (Nat.zero_le n) hy
+--   -- have : ∀ n > 0, ∃ α : OpenPartialHomeomorph X ℝ,
+--   --   ()
+--   sorry
+
 /- Given a strictly increasing chain f 0 ⊂ f 1 ⊂ f 2 ⊂ of subsets of X, there
    is a function g : ℕ → X such that each g n belongs to f n but not (assuming
    n ≠ 0) to f (n - 1). -/
