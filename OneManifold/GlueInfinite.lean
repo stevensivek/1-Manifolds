@@ -263,20 +263,106 @@ lemma increasing_oriented_interval_homeos {X : Type*} [TopologicalSpace X] {U : 
     · exact fun hn => by simp_rw [(φ n).transHomeomorph_apply, Homeomorph.coe_neg,
         comp_apply, ← image_image, hφClosure hn, image_neg_eq_neg, neg_Icc, neg_neg]
 
--- lemma stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] [T2Space X]
---     {U : ℕ → Set X} (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
---     (hPrecompact : ∀ n, IsCompact (closure (U n)))
---     (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
---     False := by
---   obtain ⟨φ, x, hx, y, hy, hφ⟩ := increasing_oriented_interval_homeos
---     hOpen hReal hPrecompact hExhaustion
---   replace hx : ∀ n, x ∈ U n :=
---     fun n => subset_of_increasing_chain hExhaustion 0 n (Nat.zero_le n) hx
---   replace hy : ∀ n, y ∈ U n :=
---     fun n => subset_of_increasing_chain hExhaustion 0 n (Nat.zero_le n) hy
---   -- have : ∀ n > 0, ∃ α : OpenPartialHomeomorph X ℝ,
---   --   ()
---   sorry
+lemma stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] [T2Space X]
+    {U : ℕ → Set X} (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
+    (hPrecompact : ∀ n, IsCompact (closure (U n)))
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1))
+    {n : ℕ} : n > 1 → False := by
+  obtain ⟨φ, x, hx, y, hy, hφ⟩ := increasing_oriented_interval_homeos
+    hOpen hReal hPrecompact hExhaustion
+  replace hx : ∀ n, x ∈ U n :=
+    fun n => subset_of_increasing_chain hExhaustion 0 n (Nat.zero_le n) hx
+  replace hy : ∀ n, y ∈ U n :=
+    fun n => subset_of_increasing_chain hExhaustion 0 n (Nat.zero_le n) hy
+  --
+  intro hn
+  obtain ⟨_, _, _, hClosure₁⟩ := hφ (n - 1)
+  specialize hClosure₁ (Nat.zero_lt_sub_of_lt hn)
+  rw [← show n - 2 = n - 1 - 1 by exact Nat.sub_succ' n 1] at hClosure₁
+  obtain ⟨_, hSource₀, hTarget₀, hClosure₀⟩ := hφ n
+  specialize hClosure₀ (Nat.zero_lt_of_lt hn)
+  have hClosure_subset : closure (U (n - 1)) ⊆ U n := by
+    nth_rewrite 2 [← Nat.sub_add_cancel <| le_of_lt hn]
+    exact hExhaustion (n - 1)
+  have hContOn_closure : ContinuousOn (φ n) (closure (U (n - 1))) := by
+    apply (φ n).continuousOn.mono
+    rwa [hSource₀]
+  have hImage_Ioo : (φ n) '' (U (n - 1)) = Ioo (- n : ℝ) n := by
+    have : closure ((φ n) '' (U (n - 1))) = Icc (- n : ℝ) n := by
+      rw [← hClosure₀]
+      exact Eq.symm <| image_closure_of_isCompact (hPrecompact (n - 1)) hContOn_closure
+    apply (closure_eq_Icc_iff ?_ ?_).mp this
+    · apply (φ n).isOpen_image_of_subset_source (hOpen (n - 1)) ?_
+      apply subset_trans subset_closure ?_
+      rwa [hSource₀]
+    · refine IsConnected.image ?_ ↑(φ n) ?_
+      · apply isConnected_iff_connectedSpace.mpr <| connectedSpace_iff_univ.mpr ?_
+        exact (hReal (n - 1)).some.symm.isConnected_preimage.mp isConnected_univ
+      · exact hContOn_closure.mono subset_closure
+  have hnsub2succ : n - 1 = n - 2 + 1 := Nat.eq_add_of_sub_eq (Nat.le_sub_one_of_lt hn) rfl
+  obtain ⟨a, b, hab, hφIcc⟩ : ∃ a b : ℝ, a < b ∧ (φ n) '' (closure (U (n - 2))) = Icc a b := by
+    have hsubSource : closure (U (n - 2)) ⊆ (φ n).source := by
+      apply subset_trans (hExhaustion (n - 2)) ?_
+      rw [← hnsub2succ, hSource₀]
+      exact subset_trans subset_closure hClosure_subset
+    have hCpct : IsCompact <| (φ n) '' (closure (U (n - 2))) :=
+      (hPrecompact (n - 2)).image_of_continuousOn <| (φ n).continuousOn.mono hsubSource
+    have hConn : IsConnected <| (φ n) '' (closure (U (n - 2))) := by
+      refine IsConnected.image ?_ (φ n) ?_
+      · refine IsConnected.closure ?_
+        apply isConnected_iff_connectedSpace.mpr <| connectedSpace_iff_univ.mpr ?_
+        exact (hReal (n - 2)).some.symm.isConnected_preimage.mp isConnected_univ
+      · exact (φ n).continuousOn.mono hsubSource
+    obtain ⟨a, b, hab, hφClosure⟩ := compact_real_classification hCpct hConn
+    refine ⟨a, b, ?_, hφClosure⟩
+    by_contra h
+    replace hab : a = b := le_antisymm_iff.mpr ⟨hab, not_lt.mp h⟩
+    rw [hab, Icc_self b] at hφClosure
+    have hφb {x : X} : x ∈ U (n - 2) → (φ n) x = b := by
+      intro hx
+      apply mem_singleton_iff.mp
+      rw [← hφClosure]
+      exact mem_image_of_mem (φ n) <| subset_closure hx
+    let f : ℝ ≃ₜ U (n - 2) := (hReal (n - 2)).some.symm
+    have hfU (t : ℝ) : (f t).val ∈ U (n - 2) := Subtype.coe_prop (f t)
+    have hf0_ne_f1 := hφb (hfU 0)
+    rw [← hφb (hfU 1)] at hf0_ne_f1
+    have hf0f1 : (f 0).val ≠ (f 1).val :=
+      Subtype.coe_ne_coe.mpr <| f.injective.ne <| zero_ne_one' ℝ
+    have : InjOn (φ n) (U (n - 2)) :=
+      (φ n).injOn.mono <| subset_trans subset_closure hsubSource
+    exact ((this.ne_iff (hfU 0) (hfU 1)).mpr hf0f1) hf0_ne_f1
+  obtain ⟨han, hbn⟩ : a ∈ Ioo (- n : ℝ) n ∧ b ∈ Ioo (- n : ℝ) n := by
+    have := image_mono (f := φ n) (hExhaustion (n - 2))
+    rw [hφIcc, ← hnsub2succ, hImage_Ioo] at this
+    constructor <;> apply mem_of_subset_of_mem this
+    · exact left_mem_Icc.mpr <| le_of_lt hab
+    · exact right_mem_Icc.mpr <| le_of_lt hab
+  have h_neg_lt_self_nprec : - (n - 1 : ℝ) < n - 1 :=
+    neg_lt_self <| sub_pos_of_lt <| Nat.one_lt_cast.mpr hn
+  have h_nprec_neg_Ioo : - (n - 1 : ℝ) ∈ Ioo (- n : ℝ) n := by
+    apply mem_Ioo.mpr ⟨?_, ?_⟩
+    · simp only [neg_sub, neg_lt_sub_iff_lt_add, lt_add_iff_pos_right, zero_lt_one]
+    · exact lt_trans h_neg_lt_self_nprec (sub_one_lt (n : ℝ))
+  have h_nprec_pos_Ioo : (n - 1 : ℝ) ∈ Ioo (- n : ℝ) n := by
+    apply mem_Ioo.mpr ⟨neg_lt_sub_iff_lt_add.mpr ?_, sub_one_lt (n : ℝ)⟩
+    have : 1 < (n : ℝ) := by exact Nat.one_lt_cast.mpr hn
+    exact lt_trans (lt_one_add 1) (add_lt_add this this)
+  obtain ⟨g, hg_negn, hga, hgb, hb_posn, hg_Image, hg_id_compl⟩ :=
+    real_homeomorph_interpolating_four_points
+      han hbn h_nprec_neg_Ioo h_nprec_pos_Ioo hab h_neg_lt_self_nprec
+  let φ' := (φ n).transHomeomorph g
+  have : φ'.source = U n := by simp only [φ', (φ n).transHomeomorph_source, hSource₀]
+  have : φ'.target = (φ n).target := by
+    simp only [φ', (φ n).transHomeomorph_target, g.preimage_symm, hTarget₀]
+    apply Subset.antisymm
+    · intro t ⟨s, hsIoo, hgs⟩
+      by_cases h : s ∈ Icc (- n : ℝ) n
+      · sorry
+      · rwa [← hgs, hg_id_compl s h]
+    · sorry
+
+  sorry
 
 /- Given a strictly increasing chain f 0 ⊂ f 1 ⊂ f 2 ⊂ of subsets of X, there
    is a function g : ℕ → X such that each g n belongs to f n but not (assuming

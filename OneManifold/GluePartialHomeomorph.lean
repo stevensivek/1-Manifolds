@@ -158,7 +158,8 @@ lemma homeomorph_real_real_cut_paste {f g : ℝ ≃ₜ ℝ} {a : ℝ}
 lemma real_homeomorph_interpolating_four_points {p q a b c d : ℝ}
     (ha : a ∈ Ioo p q) (hb : b ∈ Ioo p q) (hc : c ∈ Ioo p q) (hd : d ∈ Ioo p q)
     (hab : a < b) (hcd : c < d) :
-    ∃ φ : ℝ ≃ₜ ℝ, φ p = p ∧ φ a = c ∧ φ b = d ∧ φ q = q := by
+    ∃ φ : ℝ ≃ₜ ℝ, φ p = p ∧ φ a = c ∧ φ b = d ∧ φ q = q ∧
+      φ '' (Icc p q) = Icc p q ∧ (∀ t : ℝ, t ∉ Icc p q → φ t = t):= by
   -- α '' (Icc p a) = (Icc p c)
   have hpa : p < a := (mem_Ioo.mp ha).left
   have hpc : p < c := (mem_Ioo.mp hc).left
@@ -177,6 +178,12 @@ lemma real_homeomorph_interpolating_four_points {p q a b c d : ℝ}
     homeomorph_real_real_strictMono hab hab rfl rfl
   obtain ⟨hidα_p, hγid_q⟩ : (Homeomorph.refl ℝ) p = α p ∧ γ q = (Homeomorph.refl ℝ) q := by
     simp only [Homeomorph.refl_apply, id_eq, hαp, hγq, true_and]
+  -- δ equals id on Ici q)
+  obtain ⟨δ, hδγ, hδid⟩ :=
+    homeomorph_real_real_cut_paste hγMono hIdMono hγid_q
+  have hδb : δ b = d := by simp only [hδγ <| le_of_lt hbq, hγb]
+  have hδq : δ q = q := by simp only [hδid self_mem_Ici, Homeomorph.refl_apply, id_eq]
+  have hδMono : StrictMono δ := homeomorph_real_real_strictMono hbq hdq hδb hδq
   -- Now get φ₁ by gluing id on (Iic p) to α on (Ici p)
   obtain ⟨φ₁, hφ₁id, hφ₁α⟩ :=
     homeomorph_real_real_cut_paste hIdMono hαMono hidα_p
@@ -190,11 +197,35 @@ lemma real_homeomorph_interpolating_four_points {p q a b c d : ℝ}
   have hφ₂b : φ₂ b = d := by rw [hφ₂β <| mem_Ici_of_Ioi hab, hβb]
   have hφ₂Mono : StrictMono φ₂ := homeomorph_real_real_strictMono hab hcd hφ₂a hφ₂b
   -- Get φ₃ by gluing φ₂ on (Iic b) to id on (Ici b)
-  obtain ⟨φ₃, hφ₃φ₂, hφ₃γ⟩ :=
-    homeomorph_real_real_cut_paste hφ₂Mono hγMono (by rwa [← hγb] at hφ₂b)
-  have hφ₃b : φ₃ b = d := by rw [hφ₃γ <| self_mem_Ici, hγb]
-  have hφ₃q : φ₃ q = q := by rw [hφ₃γ <| mem_Ici_of_Ioi hbq, hγq]
-  refine ⟨φ₃, ?_, ?_, hφ₃b, hφ₃q⟩ <;> rw [hφ₃φ₂] <;> try rw [hφ₂φ₁]
+  obtain ⟨φ₃, hφ₃φ₂, hφ₃δ⟩ :=
+    homeomorph_real_real_cut_paste hφ₂Mono hδMono (by rwa [← hδb] at hφ₂b)
+  have hφ₃b : φ₃ b = d := by rw [hφ₃δ <| self_mem_Ici, hδb]
+  have hφ₃q : φ₃ q = q := by rw [hφ₃δ <| mem_Ici_of_Ioi hbq, hδq]
+  have hIcc_compl : ∀ t : ℝ, t ∉ Icc p q → φ₃ t = t := by
+    intro t ht
+    simp only [mem_Icc, not_and, not_le] at ht
+    rcases imp_iff_not_or.mp ht with hlt | hgt
+    · have htp : t ∈ Iic p := mem_Iic.mp <| le_of_lt <| not_le.mp hlt
+      rw [hφ₃φ₂ <| le_trans htp <| le_of_lt hb.left,
+          hφ₂φ₁ <| le_trans htp <| le_of_lt ha.left, hφ₁id htp,
+          Homeomorph.refl_apply, id_eq]
+    · rw [hφ₃δ <| le_of_lt <| lt_trans hb.right hgt,
+          hδid <| le_of_lt hgt, Homeomorph.refl_apply, id_eq]
+  have hIcc_image : φ₃ '' Icc p q = Icc p q := by
+    apply Subset.antisymm
+    · intro t ⟨s, hsIcc, hφs⟩
+      rw [← hφs]
+      by_contra h
+      have hφ₃s := hIcc_compl (φ₃ s) h
+      rw [hφs] at hφ₃s
+      rw [← hφ₃s] at hφs
+      have : s = t := φ₃.injective hφs
+      rw [← φ₃.injective hφs] at hφ₃s
+      rw [hφ₃s] at h
+      exact h hsIcc
+    · intro t ht
+      sorry
+  refine ⟨φ₃, ?_, ?_, hφ₃b, hφ₃q, hIcc_image, hIcc_compl⟩ <;> rw [hφ₃φ₂] <;> try rw [hφ₂φ₁]
   · exact hφ₁p
   · exact mem_Iic_of_Iio hpa
   · exact mem_Iic_of_Iio <| lt_trans hpa hab
