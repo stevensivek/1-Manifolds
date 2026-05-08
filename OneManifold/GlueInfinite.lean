@@ -6,28 +6,6 @@ import «OneManifold».RealLemmas
 open Set Function Topology
 set_option linter.style.emptyLine false
 
-lemma homeomorph_real_real_fix_two_points {a b α β : ℝ} (hab : a ≠ b) (hαβ : α ≠ β) :
-    ∃ f : ℝ ≃ₜ ℝ, f α = a ∧ f β = b := by
-  let c := (a - b) / (α - β)
-  let d := (b * α - a * β) / (α - β)
-  have hαβ' : α - β ≠ 0 := sub_ne_zero_of_ne hαβ
-  have hc : c ≠ 0 := div_ne_zero (sub_ne_zero_of_ne hab) hαβ'
-  use affineHomeomorph c d hc
-  simp only [affineHomeomorph_apply, c, d]
-  field_simp
-  constructor <;> ring
-
-lemma homeomorph_open_real_fix_two_points {X : Type*} [TopologicalSpace X]
-    {U : Set X} (hReal : Nonempty (U ≃ₜ ℝ)) {x y : U} (hxy : x ≠ y)
-    {a b : ℝ} (hab : a ≠ b) :
-    ∃ φ : U ≃ₜ ℝ, φ x = a ∧ φ y = b := by
-  let ψ := hReal.some
-  obtain ⟨f, hfα, hfβ⟩ := homeomorph_real_real_fix_two_points
-    hab (fun h => hxy <| ψ.injective h)
-  use ψ.trans f
-  rw [ψ.trans_apply, ψ.trans_apply, ← hfα, ← hfβ]
-  constructor <;> rfl
-
 lemma incl_mk {X : Type*} [TopologicalSpace X] {U : Set X} [Nonempty U] (hUOpen : IsOpen U) :
     ∃ i : OpenPartialHomeomorph U X, i.source = @univ U ∧ i.target = U
       ∧ (∀ x : U, i x = Subtype.val x) := by
@@ -108,7 +86,7 @@ lemma openPartialHomeomorph_real_fix_compact_Icc {X : Type*} [TopologicalSpace X
   -- f sends V → univ, and f '' closure U = Icc x y.  We want to find
   -- ψ : ℝ ≃ₜ ℝ with ψ x = p and ψ y = q, and then the composition
   -- β ∘ ψ ∘ f will send closure U to Icc a b
-  obtain ⟨ψ, hψx, hψy⟩ := homeomorph_real_real_fix_two_points hpq (ne_of_lt hxy')
+  obtain ⟨ψ, hψx, hψy⟩ := homeomorph_real_real_fix_two_points (ne_of_lt hxy') hpq
   let α : OpenPartialHomeomorph ℝ ℝ := by
     apply ψ.toOpenPartialHomeomorph.trans' β
     rw [ψ.toOpenPartialHomeomorph_target, hβSource]
