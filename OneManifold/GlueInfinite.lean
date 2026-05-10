@@ -161,14 +161,14 @@ lemma mem_lt_mem_of_Ioo {a b : ℝ} (hab : a < b) :
   · exact mem_Ioo.mpr ⟨lt_trans hat htd, hdb⟩
 
 /- Find a sequence of homeomorphisms ψ n : U n ≃ₜ Ioo -(n+1) (n+1), expressed
-   as OpenPartialHomeomorph X ℝ, so that ψ n sends closure (U (n-1)) to
+   as OpenPartialHomeomorph X ℝ, so that ψ n sends closure (U (n - 1)) to
    Icc -n n for each n > 0. -/
 lemma increasing_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
     (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
     (hPrecompact : ∀ n, IsCompact (closure (U n)))
     (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
     ∃ ψ : ℕ → OpenPartialHomeomorph X ℝ, ∀ n,
-      (ψ n).source = U n ∧ (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1) ∧
+      (ψ n).source = U n ∧ (ψ n).target = Ioo (- (n + 1) : ℝ) (n + 1) ∧
       (n > 0 → (ψ n) '' (closure (U (n - 1))) = Icc (- n : ℝ) n) := by
   have hConn : ∀ n, IsConnected (U n) := by
     intro n
@@ -206,6 +206,126 @@ lemma increasing_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ → S
       CharP.cast_eq_zero ℝ 0, zero_add]
     exact ⟨hφ₀Source, hφ₀Target⟩
 
+/- Find a sequence of homeomorphisms ψ n : U n ≃ₜ Ioo -(n+1) (n+1), expressed
+   as OpenPartialHomeomorph X ℝ, so that ψ n sends closure (U (n - 1)) to
+   Icc -n n for each n > 0, and it sends closure (U (n - 2)) to
+   Icc (-(n - 1)) (n - 1) for each n > 1. -/
+lemma increasing_interval_homeos' {X : Type*} [TopologicalSpace X]
+    {U : ℕ → Set X} (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
+    (hPrecompact : ∀ n, IsCompact (closure (U n)))
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
+    ∃ ψ : ℕ → OpenPartialHomeomorph X ℝ, ∀ n,
+      (ψ n).source = U n ∧ (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1) ∧
+      (n > 0 → (ψ n) '' (closure (U (n - 1))) = Icc (- n : ℝ) n) ∧
+      (n > 1 → (ψ n) '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1)) := by
+  obtain ⟨φ, hφ⟩ := increasing_interval_homeos hOpen hReal hPrecompact hExhaustion
+  have find_α : ∀ (n : ℕ), n > 1 → ∃ α : OpenPartialHomeomorph X ℝ,
+      (α.source = U n ∧ α.target = Ioo (- (n + 1) : ℝ) (n + 1) ∧
+      α '' (closure (U (n - 1))) = Icc (-n : ℝ) n ∧
+      α '' (closure (U (n - 2))) = Icc (-(n - 1) : ℝ) (n - 1)) := by
+    intro n hn
+    obtain ⟨_, _, hClosure₁⟩ := hφ (n - 1)
+    specialize hClosure₁ (Nat.zero_lt_sub_of_lt hn)
+    rw [← show n - 2 = n - 1 - 1 by exact Nat.sub_succ' n 1] at hClosure₁
+    obtain ⟨hSource₀, hTarget₀, hClosure₀⟩ := hφ n
+    specialize hClosure₀ (Nat.zero_lt_of_lt hn)
+    have hClosure_subset : closure (U (n - 1)) ⊆ U n := by
+      nth_rewrite 2 [← Nat.sub_add_cancel <| le_of_lt hn]
+      exact hExhaustion (n - 1)
+    have hContOn_closure : ContinuousOn (φ n) (closure (U (n - 1))) := by
+      apply (φ n).continuousOn.mono
+      rwa [hSource₀]
+    have hImage_Ioo : (φ n) '' (U (n - 1)) = Ioo (- n : ℝ) n := by
+      have : closure ((φ n) '' (U (n - 1))) = Icc (- n : ℝ) n := by
+        rw [← hClosure₀]
+        exact Eq.symm <| image_closure_of_isCompact (hPrecompact (n - 1)) hContOn_closure
+      apply (closure_eq_Icc_iff ?_ ?_).mp this
+      · apply (φ n).isOpen_image_of_subset_source (hOpen (n - 1)) ?_
+        apply subset_trans subset_closure ?_
+        rwa [hSource₀]
+      · refine IsConnected.image ?_ ↑(φ n) ?_
+        · apply isConnected_iff_connectedSpace.mpr <| connectedSpace_iff_univ.mpr ?_
+          exact (hReal (n - 1)).some.symm.isConnected_preimage.mp isConnected_univ
+        · exact hContOn_closure.mono subset_closure
+    have hnsub2succ : n - 1 = n - 2 + 1 := Nat.eq_add_of_sub_eq (Nat.le_sub_one_of_lt hn) rfl
+    obtain ⟨a, b, hab, hφIcc⟩ : ∃ a b : ℝ, a < b ∧ (φ n) '' (closure (U (n - 2))) = Icc a b := by
+      have hsubSource : closure (U (n - 2)) ⊆ (φ n).source := by
+        apply subset_trans (hExhaustion (n - 2)) ?_
+        rw [← hnsub2succ, hSource₀]
+        exact subset_trans subset_closure hClosure_subset
+      have hCpct : IsCompact <| (φ n) '' (closure (U (n - 2))) :=
+        (hPrecompact (n - 2)).image_of_continuousOn <| (φ n).continuousOn.mono hsubSource
+      have hConn : IsConnected <| (φ n) '' (closure (U (n - 2))) := by
+        refine IsConnected.image ?_ (φ n) ?_
+        · refine IsConnected.closure ?_
+          apply isConnected_iff_connectedSpace.mpr <| connectedSpace_iff_univ.mpr ?_
+          exact (hReal (n - 2)).some.symm.isConnected_preimage.mp isConnected_univ
+        · exact (φ n).continuousOn.mono hsubSource
+      obtain ⟨a, b, hab, hφClosure⟩ := compact_real_classification hCpct hConn
+      refine ⟨a, b, ?_, hφClosure⟩
+      by_contra h
+      replace hab : a = b := le_antisymm_iff.mpr ⟨hab, not_lt.mp h⟩
+      rw [hab, Icc_self b] at hφClosure
+      have hφb {x : X} : x ∈ U (n - 2) → (φ n) x = b := by
+        intro hx
+        apply mem_singleton_iff.mp
+        rw [← hφClosure]
+        exact mem_image_of_mem (φ n) <| subset_closure hx
+      let f : ℝ ≃ₜ U (n - 2) := (hReal (n - 2)).some.symm
+      have hfU (t : ℝ) : (f t).val ∈ U (n - 2) := Subtype.coe_prop (f t)
+      have hf0_ne_f1 := hφb (hfU 0)
+      rw [← hφb (hfU 1)] at hf0_ne_f1
+      have hf0f1 : (f 0).val ≠ (f 1).val :=
+        Subtype.coe_ne_coe.mpr <| f.injective.ne <| zero_ne_one' ℝ
+      have : InjOn (φ n) (U (n - 2)) :=
+        (φ n).injOn.mono <| subset_trans subset_closure hsubSource
+      exact ((this.ne_iff (hfU 0) (hfU 1)).mpr hf0f1) hf0_ne_f1
+    obtain ⟨han, hbn⟩ : a ∈ Ioo (- n : ℝ) n ∧ b ∈ Ioo (- n : ℝ) n := by
+      have := image_mono (f := φ n) (hExhaustion (n - 2))
+      rw [hφIcc, ← hnsub2succ, hImage_Ioo] at this
+      constructor <;> apply mem_of_subset_of_mem this
+      · exact left_mem_Icc.mpr <| le_of_lt hab
+      · exact right_mem_Icc.mpr <| le_of_lt hab
+    have h_neg_lt_self_nprec : - (n - 1 : ℝ) < n - 1 :=
+      neg_lt_self <| sub_pos_of_lt <| Nat.one_lt_cast.mpr hn
+    have h_nprec_neg_Ioo : - (n - 1 : ℝ) ∈ Ioo (- n : ℝ) n := by
+      apply mem_Ioo.mpr ⟨?_, ?_⟩
+      · simp only [neg_sub, neg_lt_sub_iff_lt_add, lt_add_iff_pos_right, zero_lt_one]
+      · exact lt_trans h_neg_lt_self_nprec (sub_one_lt (n : ℝ))
+    have h_nprec_pos_Ioo : (n - 1 : ℝ) ∈ Ioo (- n : ℝ) n := by
+      apply mem_Ioo.mpr ⟨neg_lt_sub_iff_lt_add.mpr ?_, sub_one_lt (n : ℝ)⟩
+      have : 1 < (n : ℝ) := Nat.one_lt_cast.mpr hn
+      exact lt_trans (lt_one_add 1) (add_lt_add this this)
+    obtain ⟨g, hg_negn, hga, hgb, hb_posn, hg_Image, hg_id_compl⟩ :=
+      real_homeomorph_interpolating_four_points
+        han hbn h_nprec_neg_Ioo h_nprec_pos_Ioo hab h_neg_lt_self_nprec
+    have hgMono : StrictMono g :=
+      homeomorph_real_real_strictMono hab h_neg_lt_self_nprec hga hgb
+    let φ' := (φ n).transHomeomorph g
+    have hφ'Source : φ'.source = U n := by
+      simp only [φ', (φ n).transHomeomorph_source, hSource₀]
+    have hφ'Target : φ'.target = Ioo (- (n + 1) : ℝ) (n + 1) := by
+      simp only [φ', (φ n).transHomeomorph_target, g.preimage_symm, hTarget₀]
+      obtain ⟨hg_neg, hg_pos⟩ : g (- (n + 1 : ℝ)) = - (n + 1) ∧ g (n + 1 : ℝ) = n + 1 := by
+        constructor <;> apply hg_id_compl <;> simp [mem_compl_iff, mem_Icc]
+      rw [homeomorph_real_real_image_Ioo_of_strictMono hgMono, hg_neg, hg_pos]
+    have hφ'Image₁ : φ' '' (closure (U (n - 1))) = Icc (- n : ℝ) n := by
+      simp only [φ', (φ n).transHomeomorph_apply, image_comp, hClosure₀]
+      exact hg_Image
+    have hφ'Image₂ : φ' '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1) := by
+      simp only [φ', (φ n).transHomeomorph_apply, image_comp, hφIcc]
+      rw [homeomorph_real_real_image_Icc_of_strictMono hgMono, hga, hgb]
+    use φ'
+  use fun n => if h : n > 1 then (find_α n h).choose else φ n
+  intro n
+  by_cases h : n > 1 <;> simp only [h, ↓reduceDIte]
+  · obtain ⟨_, _, _, _⟩ := (find_α n h).choose_spec
+    refine ⟨?_, ?_, ?_, ?_⟩ <;> try assumption
+    · simpa only [lt_trans Nat.one_pos h, true_implies]
+    · simpa only [true_implies]
+  · obtain ⟨_, _, _⟩ := hφ n
+    refine ⟨?_, ?_, ?_, ?_⟩ <;> (try assumption); simp only [false_implies]
+
 lemma subset_of_increasing_chain {X : Type*} [TopologicalSpace X]
     {U : ℕ → Set X} (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
     ∀ m n, m ≤ n → U m ⊆ U n := by
@@ -221,10 +341,11 @@ lemma subset_of_increasing_chain {X : Type*} [TopologicalSpace X]
     · simp only [heq, Subset.refl]
     · exact False.elim <| (lt_self_iff_false m).mp <| lt_of_le_of_lt hmn hle
 
-/- Find a sequence of homeomorphisms ψ n : U n ≃ₜ Ioo -(n+1) (n+1), expressed
-   as OpenPartialHomeomorph X ℝ, so that ψ n sends closure (U (n-1)) to
-   Icc -n n for each n > 0, and so that all ψ are compatibly oriented: there
-   are points x y ∈ U 0 such that (ψ n) x < (ψ n) y for all n. -/
+/- Find a sequence of homeomorphisms ψ n : U n ≃ₜ Ioo -(n + 1) (n + 1),
+   expressed as OpenPartialHomeomorph X ℝ, so that ψ n sends
+   closure (U (n - 1)) to Icc -n n for each n > 0 and closure (U (n - 2)) to
+   Icc -(n + 1) (n + 1) for each n > 1, and so that all ψ are compatibly
+   oriented: there are points x y ∈ U 0 such that (ψ n) x < (ψ n) y for all n. -/
 lemma increasing_oriented_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
     (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
     (hPrecompact : ∀ n, IsCompact (closure (U n)))
@@ -232,23 +353,22 @@ lemma increasing_oriented_interval_homeos {X : Type*} [TopologicalSpace X] {U : 
     ∃ ψ : ℕ → OpenPartialHomeomorph X ℝ, ∃ x ∈ U 0, ∃ y ∈ U 0, ∀ n,
       (ψ n) x < (ψ n) y ∧
       (ψ n).source = U n ∧ (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1) ∧
-      (n > 0 → (ψ n) '' (closure (U (n - 1))) = Icc (- n : ℝ) n) := by
+      (n > 0 → (ψ n) '' (closure (U (n - 1))) = Icc (- n : ℝ) n) ∧
+      (n > 1 → (ψ n) '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1)) := by
   let α₀ := (hReal 0).some
-  let x : X := (α₀.symm (-1)).val
+  let x : X := (α₀.symm 0).val
   let y : X := (α₀.symm 1).val
-  have hx : x ∈ U 0 := Subtype.coe_prop (α₀.symm (-1))
+  have hx : x ∈ U 0 := Subtype.coe_prop (α₀.symm 0)
   have hy : y ∈ U 0 := Subtype.coe_prop (α₀.symm 1)
-  have hxy : x ≠ y := by
-    apply Subtype.coe_ne_coe.mpr <| α₀.symm.injective.ne ?_
-    exact ne_of_lt <| neg_lt_self Real.zero_lt_one
-  obtain ⟨φ, hφ⟩ := increasing_interval_homeos hOpen hReal hPrecompact hExhaustion
+  have hxy : x ≠ y := Subtype.coe_ne_coe.mpr <| α₀.symm.injective.ne <| zero_ne_one' ℝ
+  obtain ⟨φ, hφ⟩ := increasing_interval_homeos' hOpen hReal hPrecompact hExhaustion
   use fun n => if (φ n) x < (φ n) y then φ n else (φ n).transHomeomorph (Homeomorph.neg ℝ)
   refine ⟨x, hx, y, hy, ?_⟩
   intro n
   by_cases hφn : (φ n) x < (φ n) y <;> simp_all only [↓reduceIte]
   · simp only [true_and, implies_true]
-  · obtain ⟨hφSource, hφTarget, hφClosure⟩ := hφ n
-    refine ⟨?_, ?_, ?_, ?_⟩
+  · obtain ⟨hφSource, hφTarget, hφClosure, hφClosure₂⟩ := hφ n
+    refine ⟨?_, ?_, ?_, ?_, ?_⟩
     · rcases not_lt_iff_eq_or_lt.mp hφn with h | h
       · obtain ⟨hx', hy'⟩ : x ∈ (φ n).source ∧ y ∈ (φ n).source := by
           rw [hφSource]
@@ -262,106 +382,180 @@ lemma increasing_oriented_interval_homeos {X : Type*} [TopologicalSpace X] {U : 
         Homeomorph.coe_neg, neg_add_rev, neg_preimage, neg_Ioo, neg_neg]
     · exact fun hn => by simp_rw [(φ n).transHomeomorph_apply, Homeomorph.coe_neg,
         comp_apply, ← image_image, hφClosure hn, image_neg_eq_neg, neg_Icc, neg_neg]
+    · exact fun hn => by simp only [(φ n).transHomeomorph_apply, Homeomorph.coe_neg,
+        image_comp, hφClosure₂ hn, neg_sub, image_neg_eq_neg, neg_Icc]
 
-lemma stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] [T2Space X]
-    {U : ℕ → Set X} (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
+/- Given `φ ψ : OpenPartialHomeomorph X ℝ` which send a given closed set A in
+   each source to the same interval `Icc a b`, if there are points x and y in
+   A such that both `φ x < φ y` and `ψ x < ψ y` hold, then φ and ψ are equal
+   on `frontier A`. -/
+lemma openPartialHomeomorph_eqOn_frontier {X : Type*} [TopologicalSpace X]
+    {A : Set X} (hAClosed : IsClosed A)
+    {φ ψ : OpenPartialHomeomorph X ℝ} (hφA : A ⊆ φ.source) (hψA : A ⊆ ψ.source)
+    {a b : ℝ} (hab : a ≤ b) (hφImage : φ '' A = Icc a b) (hψImage : ψ '' A = Icc a b)
+    {x y : X} (hxA : x ∈ A) (hyA : y ∈ A) (hφxy : φ x < φ y) (hψxy : ψ x < ψ y) :
+    EqOn φ ψ (frontier A) := by
+  let β : OpenPartialHomeomorph ℝ ℝ := φ.symm.trans ψ
+  let B := φ '' A
+  have hB_βsource : B ⊆ β.source := by
+    simp only [β, φ.symm.trans_source, φ.symm_source]
+    have hB_target : B ⊆ φ.target := by
+      rw [← φ.image_source_eq_target]
+      apply image_mono hφA
+    apply subset_inter hB_target ?_
+    · refine image_subset_iff.mp ?_
+      intro t ⟨s, hsV, hφs⟩
+      subst t
+      have htSource : φ.symm s ∈ φ.source := by
+        rw [← φ.symm_target]
+        exact φ.symm.map_source (hB_target hsV)
+      have hφt : φ (φ.symm s) = s := φ.right_inv (hB_target hsV)
+      apply mem_of_subset_of_mem hψA
+      obtain ⟨_, hrU, hφr⟩ := hsV
+      nth_rewrite 2 [← hφr] at hφt
+      rwa [φ.injOn htSource (hφA hrU) hφt]
+  have hMono : StrictMonoOn β (Icc a b) := by
+    have hβCont : ContinuousOn β B := β.continuousOn.mono hB_βsource
+    have hβInj : InjOn β B := β.injOn.mono hB_βsource
+    simp_rw [B, hφImage] at hβCont hβInj
+    have hMonoOn := ContinuousOn.strictMonoOn_of_injOn_Icc' hab hβCont hβInj
+    have : ¬ StrictAntiOn β (Icc a b) := by
+      let p : ℝ := φ x
+      let q : ℝ := φ y
+      obtain ⟨hpImage, hqImage⟩ : p ∈ φ '' A ∧ q ∈ φ '' A := by
+        constructor <;> apply mem_image_of_mem <;> assumption
+      obtain ⟨hxφ, hyφ⟩ : x ∈ φ.source ∧ y ∈ φ.source := by
+        constructor <;> apply mem_of_subset_of_mem hφA <;> assumption
+      obtain ⟨hβp, hβq⟩ : β p = ψ x ∧ β q = ψ y := by
+        simp only [β, p, q, φ.symm.trans_apply, φ.left_inv hxφ, φ.left_inv hyφ, true_and]
+      have hβpβq : β p < β q := by rwa [hβp, hβq]
+      by_contra hAnti
+      rw [← hφImage] at hAnti
+      specialize hAnti hpImage hqImage hφxy
+      exact (lt_self_iff_false (β p)).mp <| lt_trans hβpβq hAnti
+    simpa only [this, or_false] using hMonoOn
+  have ⟨hβa, hβb⟩ : β a = a ∧ β b = b := by
+    have hβB : β '' B = B := by
+      simp only [φ.symm.coe_trans, comp_apply, β]
+      rw [← image_image ψ φ.symm B, φ.leftInvOn.image_image' hφA]
+      simp only [B, hφImage, hψImage]
+    have hBIcc : B = Icc a b := by simp only [B, hφImage]
+    have hβB' : β '' (Icc a b) = Icc a b := by rwa [← hBIcc]
+    have ⟨haβB, hbβB⟩ : a ∈ β '' B ∧ b ∈ β '' B := by
+      rw [hBIcc, hβB']
+      exact ⟨left_mem_Icc.mpr hab, right_mem_Icc.mpr hab⟩
+    have hβImage {t : ℝ} : t ∈ Icc a b → β t ∈ Icc (β a) (β b) := by
+      intro ht
+      apply mem_Icc.mp ⟨?_, ?_⟩
+      · exact hMono.monotoneOn (left_mem_Icc.mpr hab) ht ht.left
+      · exact hMono.monotoneOn ht (right_mem_Icc.mpr hab) ht.right
+    obtain ⟨r, hrB, hβr⟩ := haβB
+    obtain ⟨s, hsB, hβs⟩ := hbβB
+    rw [hBIcc] at hrB hsB
+    obtain ⟨hβ_le_a, _⟩ := hβImage hrB
+    obtain ⟨_, hβ_ge_b⟩ := hβImage hsB
+    rw [hβr] at hβ_le_a
+    rw [hβs] at hβ_ge_b
+    obtain ⟨hβa_mem, hβb_mem⟩ : β a ∈ Icc a b ∧ β b ∈ Icc a b := by
+      constructor <;> rw [← hβB'] <;> apply mem_image_of_mem β
+      · exact left_mem_Icc.mpr hab
+      · exact right_mem_Icc.mpr hab
+    constructor
+    · exact le_antisymm hβ_le_a hβa_mem.left
+    · exact le_antisymm hβb_mem.right hβ_ge_b
+  have hφIsImage : φ.IsImage A (Icc a b) := by
+    rw [← hφImage]
+    intro t ht
+    constructor
+    · exact fun ⟨_, hsA, hφs⟩ => by rwa [φ.injOn (hφA hsA) ht hφs] at hsA
+    · exact fun h => mem_image_of_mem φ h
+  have hsymm_EqOn : EqOn φ.symm ψ.symm (frontier (Icc a b)) := by
+    rw [frontier_Icc hab]
+    have hφsymm_ψ {c : ℝ} (hc : c ∈ Icc a b) : φ.symm c ∈ ψ.source := by
+      apply mem_of_subset_of_mem hψA
+      apply (hφIsImage.symm_apply_mem_iff ?_).mpr hc
+      rw [← φ.image_source_eq_target]
+      apply mem_of_subset_of_mem <| image_mono hφA
+      rwa [hφImage]
+    have hφψa := congrArg ψ.symm hβa
+    have hφψb := congrArg ψ.symm hβb
+    simp only [β, φ.symm.trans_apply, ψ.left_inv <| hφsymm_ψ <| left_mem_Icc.mpr hab] at hφψa
+    simp only [β, φ.symm.trans_apply, ψ.left_inv <| hφsymm_ψ <| right_mem_Icc.mpr hab] at hφψb
+    intro x hx
+    by_cases h : x = a
+    · rwa [h]
+    · rwa [mem_singleton_iff.mp <| mem_of_mem_insert_of_ne hx h]
+  intro t ht
+  have htφSource : t ∈ φ.source :=
+    mem_of_subset_of_mem (subset_trans hAClosed.frontier_subset hφA) ht
+  have : φ t ∈ frontier (Icc a b) :=
+    (hφIsImage.frontier.apply_mem_iff htφSource).mpr ht
+  have htEq : ψ.symm (φ t) = φ.symm (φ t) := Eq.symm <| hsymm_EqOn this
+  apply congrArg ψ at htEq
+  simp only [φ.left_inv htφSource] at htEq
+  have : φ t ∈ ψ.target := by
+    rw [← ψ.image_source_eq_target]
+    apply mem_of_subset_of_mem <| image_mono hψA
+    rw [hψImage, ← hφImage]
+    exact mem_image_of_mem φ (hAClosed.frontier_subset ht)
+  simpa only [ψ.right_inv this] using htEq
+
+lemma stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+    (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
     (hPrecompact : ∀ n, IsCompact (closure (U n)))
-    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1))
-    {n : ℕ} : n > 1 → False := by
-  obtain ⟨φ, x, hx, y, hy, hφ⟩ := increasing_oriented_interval_homeos
-    hOpen hReal hPrecompact hExhaustion
-  replace hx : ∀ n, x ∈ U n :=
-    fun n => subset_of_increasing_chain hExhaustion 0 n (Nat.zero_le n) hx
-  replace hy : ∀ n, y ∈ U n :=
-    fun n => subset_of_increasing_chain hExhaustion 0 n (Nat.zero_le n) hy
-  --
-  intro hn
-  obtain ⟨_, _, _, hClosure₁⟩ := hφ (n - 1)
-  specialize hClosure₁ (Nat.zero_lt_sub_of_lt hn)
-  rw [← show n - 2 = n - 1 - 1 by exact Nat.sub_succ' n 1] at hClosure₁
-  obtain ⟨_, hSource₀, hTarget₀, hClosure₀⟩ := hφ n
-  specialize hClosure₀ (Nat.zero_lt_of_lt hn)
-  have hClosure_subset : closure (U (n - 1)) ⊆ U n := by
-    nth_rewrite 2 [← Nat.sub_add_cancel <| le_of_lt hn]
-    exact hExhaustion (n - 1)
-  have hContOn_closure : ContinuousOn (φ n) (closure (U (n - 1))) := by
-    apply (φ n).continuousOn.mono
-    rwa [hSource₀]
-  have hImage_Ioo : (φ n) '' (U (n - 1)) = Ioo (- n : ℝ) n := by
-    have : closure ((φ n) '' (U (n - 1))) = Icc (- n : ℝ) n := by
-      rw [← hClosure₀]
-      exact Eq.symm <| image_closure_of_isCompact (hPrecompact (n - 1)) hContOn_closure
-    apply (closure_eq_Icc_iff ?_ ?_).mp this
-    · apply (φ n).isOpen_image_of_subset_source (hOpen (n - 1)) ?_
-      apply subset_trans subset_closure ?_
-      rwa [hSource₀]
-    · refine IsConnected.image ?_ ↑(φ n) ?_
-      · apply isConnected_iff_connectedSpace.mpr <| connectedSpace_iff_univ.mpr ?_
-        exact (hReal (n - 1)).some.symm.isConnected_preimage.mp isConnected_univ
-      · exact hContOn_closure.mono subset_closure
-  have hnsub2succ : n - 1 = n - 2 + 1 := Nat.eq_add_of_sub_eq (Nat.le_sub_one_of_lt hn) rfl
-  obtain ⟨a, b, hab, hφIcc⟩ : ∃ a b : ℝ, a < b ∧ (φ n) '' (closure (U (n - 2))) = Icc a b := by
-    have hsubSource : closure (U (n - 2)) ⊆ (φ n).source := by
-      apply subset_trans (hExhaustion (n - 2)) ?_
-      rw [← hnsub2succ, hSource₀]
-      exact subset_trans subset_closure hClosure_subset
-    have hCpct : IsCompact <| (φ n) '' (closure (U (n - 2))) :=
-      (hPrecompact (n - 2)).image_of_continuousOn <| (φ n).continuousOn.mono hsubSource
-    have hConn : IsConnected <| (φ n) '' (closure (U (n - 2))) := by
-      refine IsConnected.image ?_ (φ n) ?_
-      · refine IsConnected.closure ?_
-        apply isConnected_iff_connectedSpace.mpr <| connectedSpace_iff_univ.mpr ?_
-        exact (hReal (n - 2)).some.symm.isConnected_preimage.mp isConnected_univ
-      · exact (φ n).continuousOn.mono hsubSource
-    obtain ⟨a, b, hab, hφClosure⟩ := compact_real_classification hCpct hConn
-    refine ⟨a, b, ?_, hφClosure⟩
-    by_contra h
-    replace hab : a = b := le_antisymm_iff.mpr ⟨hab, not_lt.mp h⟩
-    rw [hab, Icc_self b] at hφClosure
-    have hφb {x : X} : x ∈ U (n - 2) → (φ n) x = b := by
-      intro hx
-      apply mem_singleton_iff.mp
-      rw [← hφClosure]
-      exact mem_image_of_mem (φ n) <| subset_closure hx
-    let f : ℝ ≃ₜ U (n - 2) := (hReal (n - 2)).some.symm
-    have hfU (t : ℝ) : (f t).val ∈ U (n - 2) := Subtype.coe_prop (f t)
-    have hf0_ne_f1 := hφb (hfU 0)
-    rw [← hφb (hfU 1)] at hf0_ne_f1
-    have hf0f1 : (f 0).val ≠ (f 1).val :=
-      Subtype.coe_ne_coe.mpr <| f.injective.ne <| zero_ne_one' ℝ
-    have : InjOn (φ n) (U (n - 2)) :=
-      (φ n).injOn.mono <| subset_trans subset_closure hsubSource
-    exact ((this.ne_iff (hfU 0) (hfU 1)).mpr hf0f1) hf0_ne_f1
-  obtain ⟨han, hbn⟩ : a ∈ Ioo (- n : ℝ) n ∧ b ∈ Ioo (- n : ℝ) n := by
-    have := image_mono (f := φ n) (hExhaustion (n - 2))
-    rw [hφIcc, ← hnsub2succ, hImage_Ioo] at this
-    constructor <;> apply mem_of_subset_of_mem this
-    · exact left_mem_Icc.mpr <| le_of_lt hab
-    · exact right_mem_Icc.mpr <| le_of_lt hab
-  have h_neg_lt_self_nprec : - (n - 1 : ℝ) < n - 1 :=
-    neg_lt_self <| sub_pos_of_lt <| Nat.one_lt_cast.mpr hn
-  have h_nprec_neg_Ioo : - (n - 1 : ℝ) ∈ Ioo (- n : ℝ) n := by
-    apply mem_Ioo.mpr ⟨?_, ?_⟩
-    · simp only [neg_sub, neg_lt_sub_iff_lt_add, lt_add_iff_pos_right, zero_lt_one]
-    · exact lt_trans h_neg_lt_self_nprec (sub_one_lt (n : ℝ))
-  have h_nprec_pos_Ioo : (n - 1 : ℝ) ∈ Ioo (- n : ℝ) n := by
-    apply mem_Ioo.mpr ⟨neg_lt_sub_iff_lt_add.mpr ?_, sub_one_lt (n : ℝ)⟩
-    have : 1 < (n : ℝ) := by exact Nat.one_lt_cast.mpr hn
-    exact lt_trans (lt_one_add 1) (add_lt_add this this)
-  obtain ⟨g, hg_negn, hga, hgb, hb_posn, hg_Image, hg_id_compl⟩ :=
-    real_homeomorph_interpolating_four_points
-      han hbn h_nprec_neg_Ioo h_nprec_pos_Ioo hab h_neg_lt_self_nprec
-  let φ' := (φ n).transHomeomorph g
-  have : φ'.source = U n := by simp only [φ', (φ n).transHomeomorph_source, hSource₀]
-  have : φ'.target = (φ n).target := by
-    simp only [φ', (φ n).transHomeomorph_target, g.preimage_symm, hTarget₀]
-    apply Subset.antisymm
-    · intro t ⟨s, hsIoo, hgs⟩
-      by_cases h : s ∈ Icc (- n : ℝ) n
-      · sorry
-      · rwa [← hgs, hg_id_compl s h]
-    · sorry
-
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
+    ∃ ψ : ℕ → OpenPartialHomeomorph X ℝ, ∃ x ∈ U 0, ∃ y ∈ U 0, ∀ n,
+      (ψ n) x < (ψ n) y ∧
+      (ψ n).source = U n ∧ (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1) ∧
+      (n > 0 → (ψ n) '' (closure (U (n - 1))) = Icc (- n : ℝ) n) ∧
+      (n > 1 → (ψ n) '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1)) := by
+  obtain ⟨φ, x, hx, y, hy, hφ⟩ :=
+    increasing_oriented_interval_homeos hOpen hReal hPrecompact hExhaustion
+  have hImage₁ {n : ℕ} : n > 1 →
+      (φ n) '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1) := by
+    obtain ⟨_, _, _, _, h⟩ := hφ n
+    exact fun hn => h hn
+  have hImage₂ {n : ℕ} : n > 1 →
+      (φ (n - 1)) '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1) := by
+    obtain ⟨_, _, _, h, _⟩ := hφ (n - 1)
+    exact fun hn => by
+      simp only [Nat.sub_succ' n 1, h <| Nat.zero_lt_sub_of_lt hn,
+                 Nat.cast_pred <| Nat.zero_lt_of_lt hn]
+  have hImageEq {n : ℕ} : n > 1 →
+      (φ n) '' (closure (U (n - 2))) = (φ (n - 1)) '' (closure (U (n - 2))) := by
+    exact fun hn => by rw [hImage₁ hn, hImage₂ hn]
+  have hclosure_Uprec {n : ℕ} : n > 1 → closure (U (n - 2)) ⊆ U (n - 1) := by
+    intro hn
+    rw [show n - 1 = n - 2 + 1 by exact Nat.eq_add_of_sub_eq (Nat.le_sub_one_of_lt hn) rfl]
+    exact hExhaustion (n - 2)
+  have hUMonotone := subset_of_increasing_chain hExhaustion
+  have hA₁ {n : ℕ} : n > 1 → closure (U (n - 2)) ⊆ (φ n).source := by
+    intro hn
+    apply subset_trans (hclosure_Uprec hn) ?_
+    rw [(hφ n).right.left]
+    exact hUMonotone (n - 1) n <| Nat.sub_le n 1
+  have hA₂ {n : ℕ} : n > 1 → closure (U (n - 2)) ⊆ (φ (n - 1)).source := by
+    rw [(hφ (n - 1)).right.left]
+    exact fun hn => hclosure_Uprec hn
+  have hFrontier {n : ℕ} : n > 1 →
+      EqOn (φ n) (φ (n - 1)) (frontier (closure (U (n - 2)))) := by
+    intro hn
+    have hIcc_le : - ((n : ℝ) - 1) ≤ (n : ℝ) - 1 := by
+      apply neg_le_self
+      simp only [sub_nonneg, Nat.one_le_cast, le_of_lt hn]
+    obtain ⟨hxA, hyA⟩ : x ∈ closure (U (n - 2)) ∧ y ∈ closure (U (n - 2)):= by
+      have := subset_trans (hUMonotone 0 (n - 2) <| Nat.le_sub_of_add_le hn) subset_closure
+      exact ⟨this hx, this hy⟩
+    exact openPartialHomeomorph_eqOn_frontier isClosed_closure (hA₁ hn) (hA₂ hn)
+      hIcc_le (hImage₁ hn) (hImage₂ hn) hxA hyA (hφ n).left (hφ (n - 1)).left
+  have {n : ℕ} (hn : n > 1) : ∃ β : OpenPartialHomeomorph X ℝ,
+      False := by
+    obtain ⟨ψ, hψSource, hψTarget, hEq₁, hEq₂⟩ :=
+      openPartialHomeomorph_cut_and_paste
+        isClosed_closure (hA₂ hn) (hA₁ hn) (hFrontier hn).symm (hImageEq hn).symm
+    rw [(hφ n).right.left] at hψSource
+    rw [(hφ n).right.right.left] at hψTarget
+    sorry
   sorry
 
 /- Given a strictly increasing chain f 0 ⊂ f 1 ⊂ f 2 ⊂ of subsets of X, there
@@ -384,7 +578,6 @@ lemma strictMono_subset_representatives {X : Type*} [TopologicalSpace X]
     have mem_f_diff := (nonempty_f_diff n hn).some.property
     simp only [setOf_mem_eq] at mem_f_diff
     exact ⟨mem_of_mem_diff mem_f_diff, notMem_of_mem_diff mem_f_diff⟩
-
 
 theorem homeomorph_real_of_union_real {X : Type*} [TopologicalSpace X]
     {U : ℕ → Set X} (hUnion : ⋃ n, U n = univ) (hOpen : ∀ n, IsOpen (U n))

@@ -106,6 +106,16 @@ lemma homeomorph_real_real_strictMono {a b c d : ℝ} {φ : ℝ ≃ₜ ℝ}
   · subst c d
     exact False.elim <| (lt_self_iff_false (φ a)).mp <| lt_trans hcd (hAnti hab)
 
+lemma homeomorph_real_real_strictMono_iff_symm_strictMono {f : ℝ ≃ₜ ℝ} :
+    StrictMono f ↔ StrictMono f.symm := by
+  have hImp (g : ℝ ≃ₜ ℝ) : StrictMono g → StrictMono g.symm := by
+    intro hMono
+    have : g.symm (g 0) < g.symm (g 1) := by simp only [g.symm_apply_apply, zero_lt_one]
+    exact homeomorph_real_real_strictMono (hMono Real.zero_lt_one) this rfl rfl
+  constructor
+  · exact hImp f
+  · exact fun hMono => hImp f.symm hMono
+
 lemma homeomorph_real_real_image_Iic_of_strictMono {f : ℝ ≃ₜ ℝ} {a : ℝ} :
     StrictMono f → f '' (Iic a) = Iic (f a) := by
   intro hMono
@@ -116,11 +126,44 @@ lemma homeomorph_real_real_image_Iic_of_strictMono {f : ℝ ≃ₜ ℝ} {a : ℝ
   · intro x hx
     rw [← f.apply_symm_apply x]
     apply mem_image_of_mem
-    have : StrictMono f.symm := by
-      have : f.symm (f 0) < f.symm (f 1) := by simp only [f.symm_apply_apply, zero_lt_one]
-      exact homeomorph_real_real_strictMono (hMono Real.zero_lt_one) this rfl rfl
+    have : StrictMono f.symm :=
+      homeomorph_real_real_strictMono_iff_symm_strictMono.mp hMono
     rw [mem_Iic, ← f.symm_apply_apply a]
     exact this.monotone (mem_Iic.mp hx)
+
+lemma homeomorph_real_real_image_Ioo_of_strictMono {f : ℝ ≃ₜ ℝ} {a b : ℝ} :
+    StrictMono f → f '' (Ioo a b) = Ioo (f a) (f b) := by
+  intro hMono
+  apply Subset.antisymm
+  · intro _ ⟨_, hsIoo, hfst⟩
+    rw [← hfst]
+    obtain ⟨_, _⟩ := mem_Ioo.mp hsIoo
+    apply mem_Ioo.mpr ⟨?_, ?_⟩ <;> apply hMono <;> assumption
+  · intro t htIoo
+    rw [← f.apply_symm_apply t]
+    obtain ⟨hfat, htfb⟩ := mem_Ioo.mp htIoo
+    have : StrictMono f.symm :=
+      homeomorph_real_real_strictMono_iff_symm_strictMono.mp hMono
+    apply mem_image_of_mem
+    rw [← f.symm_apply_apply a, ← f.symm_apply_apply b]
+    apply mem_Ioo.mpr ⟨?_, ?_⟩ <;> apply this <;> assumption
+
+lemma homeomorph_real_real_image_Icc_of_strictMono {f : ℝ ≃ₜ ℝ} {a b : ℝ} :
+    StrictMono f → f '' (Icc a b) = Icc (f a) (f b) := by
+  intro hMono
+  apply Subset.antisymm
+  · intro _ ⟨_, hsIcc, hfst⟩
+    rw [← hfst]
+    obtain ⟨_, _⟩ := mem_Icc.mp hsIcc
+    apply mem_Icc.mpr ⟨?_, ?_⟩ <;> apply hMono.monotone <;> assumption
+  · intro t htIcc
+    rw [← f.apply_symm_apply t]
+    obtain ⟨hfat, htfb⟩ := mem_Icc.mp htIcc
+    have : StrictMono f.symm :=
+      homeomorph_real_real_strictMono_iff_symm_strictMono.mp hMono
+    apply mem_image_of_mem
+    rw [← f.symm_apply_apply a, ← f.symm_apply_apply b]
+    apply mem_Icc.mpr ⟨?_, ?_⟩ <;> apply this.monotone <;> assumption
 
 lemma homeomorph_real_real_cut_paste {f g : ℝ ≃ₜ ℝ} {a : ℝ}
     (hf : StrictMono f) (hg : StrictMono g) (ha : f a = g a) :
@@ -159,7 +202,7 @@ lemma real_homeomorph_interpolating_four_points {p q a b c d : ℝ}
     (ha : a ∈ Ioo p q) (hb : b ∈ Ioo p q) (hc : c ∈ Ioo p q) (hd : d ∈ Ioo p q)
     (hab : a < b) (hcd : c < d) :
     ∃ φ : ℝ ≃ₜ ℝ, φ p = p ∧ φ a = c ∧ φ b = d ∧ φ q = q ∧
-      φ '' (Icc p q) = Icc p q ∧ (∀ t : ℝ, t ∉ Icc p q → φ t = t):= by
+      φ '' (Icc p q) = Icc p q ∧ EqOn φ id (Icc p q)ᶜ := by
   -- α '' (Icc p a) = (Icc p c)
   have hpa : p < a := (mem_Ioo.mp ha).left
   have hpc : p < c := (mem_Ioo.mp hc).left
@@ -201,9 +244,9 @@ lemma real_homeomorph_interpolating_four_points {p q a b c d : ℝ}
     homeomorph_real_real_cut_paste hφ₂Mono hδMono (by rwa [← hδb] at hφ₂b)
   have hφ₃b : φ₃ b = d := by rw [hφ₃δ <| self_mem_Ici, hδb]
   have hφ₃q : φ₃ q = q := by rw [hφ₃δ <| mem_Ici_of_Ioi hbq, hδq]
-  have hIcc_compl : ∀ t : ℝ, t ∉ Icc p q → φ₃ t = t := by
+  have hIcc_compl : EqOn φ₃ id (Icc p q)ᶜ := by
     intro t ht
-    simp only [mem_Icc, not_and, not_le] at ht
+    simp only [mem_compl_iff, mem_Icc, not_and, not_le] at ht
     rcases imp_iff_not_or.mp ht with hlt | hgt
     · have htp : t ∈ Iic p := mem_Iic.mp <| le_of_lt <| not_le.mp hlt
       rw [hφ₃φ₂ <| le_trans htp <| le_of_lt hb.left,
@@ -214,17 +257,19 @@ lemma real_homeomorph_interpolating_four_points {p q a b c d : ℝ}
   have hIcc_image : φ₃ '' Icc p q = Icc p q := by
     apply Subset.antisymm
     · intro t ⟨s, hsIcc, hφs⟩
-      rw [← hφs]
       by_contra h
-      have hφ₃s := hIcc_compl (φ₃ s) h
-      rw [hφs] at hφ₃s
-      rw [← hφ₃s] at hφs
-      have : s = t := φ₃.injective hφs
-      rw [← φ₃.injective hφs] at hφ₃s
-      rw [hφ₃s] at h
+      have : φ₃ t = φ₃ s := by
+        rw [hφs]
+        exact hIcc_compl h
+      rw [φ₃.injective this] at h
       exact h hsIcc
     · intro t ht
-      sorry
+      rw [← φ₃.apply_symm_apply t]
+      apply mem_image_of_mem φ₃
+      by_contra h
+      have : φ₃ (φ₃.symm t) = φ₃.symm t := hIcc_compl h
+      rw [← this, φ₃.apply_symm_apply] at h
+      exact h ht
   refine ⟨φ₃, ?_, ?_, hφ₃b, hφ₃q, hIcc_image, hIcc_compl⟩ <;> rw [hφ₃φ₂] <;> try rw [hφ₂φ₁]
   · exact hφ₁p
   · exact mem_Iic_of_Iio hpa
