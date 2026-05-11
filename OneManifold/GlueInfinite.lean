@@ -500,62 +500,149 @@ lemma openPartialHomeomorph_eqOn_frontier {X : Type*} [TopologicalSpace X]
     exact mem_image_of_mem φ (hAClosed.frontier_subset ht)
   simpa only [ψ.right_inv this] using htEq
 
+private class homeoUn (X : Type*) [TopologicalSpace X] (U : ℕ → Set X) (n : ℕ) where
+  φ : OpenPartialHomeomorph X ℝ
+  hSource : φ.source = U n
+  hTarget : φ.target = Ioo (- ((n + 1)) : ℝ) (n + 1)
+  x : X
+  y : X
+  hx : x ∈ U 0
+  hy : y ∈ U 0
+  hxy : φ x < φ y
+  hClosure₁ : n > 0 → φ '' (closure (U (n - 1))) = Icc (- n : ℝ) n
+  hClosure₂ : n > 1 → φ '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1)
+
+private instance homeoUn_mk {X : Type*} [TopologicalSpace X] (U : ℕ → Set X)
+  (n : ℕ) (φ : OpenPartialHomeomorph X ℝ) (hSource : φ.source = U n)
+  (hTarget : φ.target = Ioo (-((n + 1)) : ℝ) (n + 1))
+  {x y : X} (hx : x ∈ U 0) (hy : y ∈ U 0) (hxy : φ x < φ y)
+  (hClosure₁ : n > 0 → φ '' (closure (U (n - 1))) = Icc (-n : ℝ) n)
+  (hClosure₂ : n > 1 → φ '' (closure (U (n - 2))) = Icc (-(n - 1) : ℝ) (n - 1)) :
+  homeoUn X U n := {φ, hSource, hTarget, x, y, hx, hy, hxy, hClosure₁, hClosure₂}
+
+/- Given an exhaustion of X by U : ℕ → Set X and OpenPartialHomeomorphs
+   f : U n → (-n - 1, n + 1) and g : U (n - 1) → (-n, n) which both send
+   closure (U (n - 2)) to [-(n-1), n-1], cut and paste to produce a new
+   f' that agrees with g on closure (U (n - 2)) and with f everywhere else -/
+lemma homeoUn_cut_and_paste {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+    {n : ℕ} (hn : n > 1) (f : homeoUn X U n) (g : homeoUn X U (n - 1))
+    (hx : f.x = g.x) (hy : f.y = g.y) (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
+    ∃ a : homeoUn X U n,
+      EqOn a.φ g.φ (closure (U (n - 2))) ∧ EqOn a.φ f.φ (closure (U (n - 2)))ᶜ ∧
+      a.x = f.x ∧ a.y = f.y := by
+  have hImage₁ : f.φ '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1) := f.hClosure₂ hn
+  have hImage₂ : g.φ '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1) := by
+    have h := g.hClosure₁ <| Nat.zero_lt_sub_of_lt hn
+    simp only [Nat.sub_succ' n 1, h, Nat.cast_pred <| Nat.zero_lt_of_lt hn]
+  have hImageEq : f.φ '' (closure (U (n - 2))) = g.φ '' (closure (U (n - 2))) := by
+    rw [hImage₁, hImage₂]
+  have hclosure_Upred : closure (U (n - 2)) ⊆ U (n - 1) := by
+    rw [show n - 1 = n - 2 + 1 by exact Nat.eq_add_of_sub_eq (Nat.le_sub_one_of_lt hn) rfl]
+    exact hExhaustion (n - 2)
+  have hUMonotone := subset_of_increasing_chain hExhaustion
+  have hA₁ : closure (U (n - 2)) ⊆ f.φ.source := by
+    apply subset_trans hclosure_Upred ?_
+    rw [f.hSource]
+    exact hUMonotone (n - 1) n <| Nat.sub_le n 1
+  have hA₂ : closure (U (n - 2)) ⊆ g.φ.source := by rwa [g.hSource]
+  have hFrontier : EqOn f.φ g.φ (frontier (closure (U (n - 2)))) := by
+    have hIcc_le : - ((n : ℝ) - 1) ≤ (n : ℝ) - 1 := by
+      apply neg_le_self
+      simp only [sub_nonneg, Nat.one_le_cast, le_of_lt hn]
+    obtain ⟨hxA, hyA⟩ : f.x ∈ closure (U (n - 2)) ∧ f.y ∈ closure (U (n - 2)):= by
+      have := subset_trans (hUMonotone 0 (n - 2) <| Nat.le_sub_of_add_le hn) subset_closure
+      exact ⟨this f.hx, this f.hy⟩
+    have hgxy : g.φ f.x < g.φ f.y := by
+      rw [hx, hy]
+      exact g.hxy
+    exact openPartialHomeomorph_eqOn_frontier isClosed_closure hA₁ hA₂
+      hIcc_le hImage₁ hImage₂ hxA hyA f.hxy hgxy
+  -- Cut and paste, then simplify the corresponding source and target info
+  obtain ⟨ψ, hψSource, hψTarget, hEq₁, hEq₂⟩ :=
+    openPartialHomeomorph_cut_and_paste isClosed_closure hA₂ hA₁ hFrontier.symm hImageEq.symm
+  rw [f.hSource] at hψSource
+  rw [f.hTarget] at hψTarget
+  have hψxy : ψ f.x < ψ f.y := by
+    obtain ⟨hgx, hgy⟩ : g.x ∈ closure (U (n - 2)) ∧ g.y ∈ closure (U (n - 2)) := by
+      have hU := subset_trans (hUMonotone 0 (n - 2) <| Nat.le_sub_of_add_le hn) subset_closure
+      have ⟨_, _⟩ : g.x ∈ U 0 ∧ g.y ∈ U 0 := ⟨g.hx, g.hy⟩
+      constructor <;> apply mem_of_subset_of_mem hU <;> assumption
+    rw [hx, hy, hEq₁ hgx, hEq₁ hgy]
+    exact g.hxy
+  have hClosure₂ : n > 1 → ψ '' closure (U (n - 2)) = Icc (-(n - 1 : ℝ)) (n - 1) := by
+    intro _
+    rw [image_congr hEq₁, Nat.sub_succ' n 1, g.hClosure₁ <| Nat.zero_lt_sub_of_lt hn]
+    haveI : 1 ≤ n := Nat.one_le_of_lt hn
+    simp_all only [Nat.cast_sub, Nat.cast_one]
+  have hClosure₁ : n > 0 → ψ '' closure (U (n - 1)) = Icc (- (n : ℝ)) n := by
+    intro _
+    apply Subset.antisymm
+    · intro t ⟨s, hsClosure, hst⟩
+      by_cases h : s ∈ closure (U (n - 2))
+      · have := mem_image_of_mem ψ h
+        rw [hst, hClosure₂ hn] at this
+        apply mem_of_subset_of_mem (Icc_subset_Icc ?_ ?_) this
+        · simp only [neg_sub, neg_le_sub_iff_le_add, le_add_iff_nonneg_left, zero_le_one]
+        · simp only [tsub_le_iff_right, le_add_iff_nonneg_right, zero_le_one]
+      · have := mem_image_of_mem f.φ hsClosure
+        rwa [← hEq₂ h, hst, f.hClosure₁ (Nat.zero_lt_of_lt hn)] at this
+    · intro t ht
+      by_cases h : t ∈ Icc (-((n : ℝ) - 1)) (n - 1)
+      · rw [← hClosure₂ hn] at h
+        apply mem_of_subset_of_mem (image_mono ?_) h
+        exact subset_trans hclosure_Upred subset_closure
+      · obtain ⟨s, hs_ψSource, hψst⟩ : t ∈ ψ '' ψ.source := by
+          rw [ψ.image_source_eq_target, hψTarget]
+          apply mem_of_subset_of_mem (Icc_subset_Ioo ?_ ?_) ht
+          · simp only [neg_add_rev, add_lt_iff_neg_right, Left.neg_neg_iff, zero_lt_one]
+          · simp only [lt_add_iff_pos_right, zero_lt_one]
+        rw [← hψst]
+        apply mem_image_of_mem ψ
+        by_contra hh
+        have : s ∉ closure (U (n - 2)) := by
+          have : closure (U (n - 2)) ⊆ closure (U (n - 1)) :=
+            subset_trans hclosure_Upred subset_closure
+          exact (mem_compl_iff (closure (U (n - 2))) s).mp fun a ↦ hh (this a)
+        have hψs_eq_fs : ψ s = f.φ s := hEq₂ this
+        have : f.φ s ∉ f.φ '' closure (U (n - 1)) := by
+          by_contra hfs
+          obtain ⟨r, hrClosure, hfrs⟩ := hfs
+          have hr_φSource: r ∈ f.φ.source := by
+            rw [f.hSource]
+            apply mem_of_subset_of_mem (subset_trans (hExhaustion (n - 1)) ?_) hrClosure
+            rw [Nat.sub_add_cancel <| Nat.zero_lt_of_lt hn]
+          have hs_φSource : s ∈ f.φ.source := by rwa [f.hSource, ← hψSource]
+          rw [f.φ.injOn hr_φSource hs_φSource hfrs] at hrClosure
+          exact hh hrClosure
+        rw [← hψs_eq_fs, hψst, f.hClosure₁ <| Nat.zero_lt_of_lt hn] at this
+        exact this ht
+  let f' := homeoUn_mk U n ψ hψSource hψTarget f.hx f.hy hψxy hClosure₁ hClosure₂
+  rw [show ψ = f'.φ by rfl] at hEq₁ hEq₂
+  exact ⟨f', hEq₁, hEq₂, rfl, rfl⟩
+
 lemma stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
     (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
     (hPrecompact : ∀ n, IsCompact (closure (U n)))
     (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
-    ∃ ψ : ℕ → OpenPartialHomeomorph X ℝ, ∃ x ∈ U 0, ∃ y ∈ U 0, ∀ n,
-      (ψ n) x < (ψ n) y ∧
+    ∃ ψ : ℕ → OpenPartialHomeomorph X ℝ, --∃ x ∈ U 0, ∃ y ∈ U 0,
+      ∀ n, --(ψ n) x < (ψ n) y ∧
       (ψ n).source = U n ∧ (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1) ∧
-      (n > 0 → (ψ n) '' (closure (U (n - 1))) = Icc (- n : ℝ) n) ∧
-      (n > 1 → (ψ n) '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1)) := by
+      --(n > 0 → (ψ n) '' (closure (U (n - 1))) = Icc (- n : ℝ) n) ∧
+      (n > 1 → EqOn (ψ n) (ψ (n - 1)) (closure (U (n - 2)))) := by
   obtain ⟨φ, x, hx, y, hy, hφ⟩ :=
     increasing_oriented_interval_homeos hOpen hReal hPrecompact hExhaustion
-  have hImage₁ {n : ℕ} : n > 1 →
-      (φ n) '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1) := by
-    obtain ⟨_, _, _, _, h⟩ := hφ n
-    exact fun hn => h hn
-  have hImage₂ {n : ℕ} : n > 1 →
-      (φ (n - 1)) '' (closure (U (n - 2))) = Icc (- (n - 1) : ℝ) (n - 1) := by
-    obtain ⟨_, _, _, h, _⟩ := hφ (n - 1)
-    exact fun hn => by
-      simp only [Nat.sub_succ' n 1, h <| Nat.zero_lt_sub_of_lt hn,
-                 Nat.cast_pred <| Nat.zero_lt_of_lt hn]
-  have hImageEq {n : ℕ} : n > 1 →
-      (φ n) '' (closure (U (n - 2))) = (φ (n - 1)) '' (closure (U (n - 2))) := by
-    exact fun hn => by rw [hImage₁ hn, hImage₂ hn]
-  have hclosure_Uprec {n : ℕ} : n > 1 → closure (U (n - 2)) ⊆ U (n - 1) := by
-    intro hn
-    rw [show n - 1 = n - 2 + 1 by exact Nat.eq_add_of_sub_eq (Nat.le_sub_one_of_lt hn) rfl]
-    exact hExhaustion (n - 2)
-  have hUMonotone := subset_of_increasing_chain hExhaustion
-  have hA₁ {n : ℕ} : n > 1 → closure (U (n - 2)) ⊆ (φ n).source := by
-    intro hn
-    apply subset_trans (hclosure_Uprec hn) ?_
-    rw [(hφ n).right.left]
-    exact hUMonotone (n - 1) n <| Nat.sub_le n 1
-  have hA₂ {n : ℕ} : n > 1 → closure (U (n - 2)) ⊆ (φ (n - 1)).source := by
-    rw [(hφ (n - 1)).right.left]
-    exact fun hn => hclosure_Uprec hn
-  have hFrontier {n : ℕ} : n > 1 →
-      EqOn (φ n) (φ (n - 1)) (frontier (closure (U (n - 2)))) := by
-    intro hn
-    have hIcc_le : - ((n : ℝ) - 1) ≤ (n : ℝ) - 1 := by
-      apply neg_le_self
-      simp only [sub_nonneg, Nat.one_le_cast, le_of_lt hn]
-    obtain ⟨hxA, hyA⟩ : x ∈ closure (U (n - 2)) ∧ y ∈ closure (U (n - 2)):= by
-      have := subset_trans (hUMonotone 0 (n - 2) <| Nat.le_sub_of_add_le hn) subset_closure
-      exact ⟨this hx, this hy⟩
-    exact openPartialHomeomorph_eqOn_frontier isClosed_closure (hA₁ hn) (hA₂ hn)
-      hIcc_le (hImage₁ hn) (hImage₂ hn) hxA hyA (hφ n).left (hφ (n - 1)).left
-  have {n : ℕ} (hn : n > 1) : ∃ β : OpenPartialHomeomorph X ℝ,
-      False := by
-    obtain ⟨ψ, hψSource, hψTarget, hEq₁, hEq₂⟩ :=
-      openPartialHomeomorph_cut_and_paste
-        isClosed_closure (hA₂ hn) (hA₁ hn) (hFrontier hn).symm (hImageEq hn).symm
-    rw [(hφ n).right.left] at hψSource
-    rw [(hφ n).right.right.left] at hψTarget
-    sorry
+  have φClass : (n : ℕ) → homeoUn X U n := by
+    intro n
+    obtain ⟨hxy, hSource, hTarget, hClosure₁, hClosure₂⟩ := hφ n
+    exact homeoUn_mk U n (φ n) hSource hTarget hx hy hxy hClosure₁ hClosure₂
+  -- -- have {n n' : ℕ} (h1 : n > 1) (hn : n = n' + 1) : n > 1 := by
+  -- --   exact Nat.lt_of_succ_le h1
+  -- have stableHomeo (n : ℕ) : homeoUn X U n :=
+  --   match n with
+  --   | 0 => φClass 0
+  --   | 1 => φClass 1
+  --   | n' + 1 =>
+  --     homeoUn_cut_and_paste (Nat.lt_of_succ_le _) (φClass n) (stableHomeo n')
   sorry
 
 /- Given a strictly increasing chain f 0 ⊂ f 1 ⊂ f 2 ⊂ of subsets of X, there
