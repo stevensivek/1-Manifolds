@@ -620,29 +620,297 @@ lemma homeoUn_cut_and_paste {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
   rw [show ψ = f'.φ by rfl] at hEq₁ hEq₂
   exact ⟨f', hEq₁, hEq₂, rfl, rfl⟩
 
-lemma stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+private class homeoSequence (X : Type*) [TopologicalSpace X] (U : ℕ → Set X) where
+  homeo : (n : ℕ) → homeoUn X U n
+  x : X
+  y : X
+  hx : ∀ n, (homeo n).x = x
+  hy : ∀ n, (homeo n).y = y
+
+private instance homeoSequence_mk (X : Type*) [TopologicalSpace X] (U : ℕ → Set X)
+  (φ : (n : ℕ) → homeoUn X U n) {x y : X} (hx : ∀ n, (φ n).x = x) (hy : ∀ n, (φ n).y = y) :
+  homeoSequence X U := { homeo := φ, x, y, hx, hy }
+
+/- Given an exhaustion U : ℕ → Set X and a sequence of OpenPartialHomeomorphs
+   φ n : U n → ℝ, produce a new sequence where some φ n has been replaced by
+   an OpenPartialHomeomorph that agrees with φ (n - 1) on closure (U (n - 2)). -/
+lemma homeoSequence_cut_and_paste {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+    {n : ℕ} (hn : n > 1) (f : homeoSequence X U)
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
+    ∃ g : homeoSequence X U,
+      (∀ m ≠ n, (g.homeo m).φ = (f.homeo m).φ) ∧
+      EqOn (g.homeo n).φ (f.homeo (n - 1)).φ (closure (U (n - 2))) ∧
+      EqOn (g.homeo n).φ (f.homeo n).φ (closure (U (n - 2)))ᶜ := by
+  obtain ⟨ψ, hEq₁, hEq₂, hψx, hψy⟩ := homeoUn_cut_and_paste hn (f.homeo n) (f.homeo (n - 1))
+    (by rw [f.hx n, f.hx (n - 1)]) (by rw [f.hy n, f.hy (n - 1)]) hExhaustion
+  let homeo' : (k : ℕ) → homeoUn X U k :=
+    fun k => if h : k = n then (by rwa [← h] at ψ) else f.homeo k
+  have h_homeo'n : homeo' n = ψ := by
+    simp_all only [eq_mp_eq_cast, ↓reduceDIte, cast_eq, homeo']
+  have hxy : ∀ k, (homeo' k).x = f.x ∧ (homeo' k).y = f.y := by
+    intro k
+    by_cases h : k = n
+    · have : homeo' n = ψ := by
+        simp_all only [eq_mp_eq_cast, ↓reduceDIte, cast_eq, homeo']
+      rw [h, this, hψx, hψy, f.hx n, f.hy n]
+      exact ⟨rfl, rfl⟩
+    · have : homeo' k = f.homeo k := by
+        simp_all only [eq_mp_eq_cast, ↓reduceDIte, cast_eq, homeo']
+      rw [this, f.hx k, f.hy k]
+      exact ⟨rfl, rfl⟩
+  let g := homeoSequence_mk X U homeo' (fun n => (hxy n).left) (fun n => (hxy n).right)
+  have hgn : g.homeo n = ψ := by rw [← h_homeo'n, show g.homeo = homeo' by rfl]
+  refine ⟨g, ?_, by rwa [hgn], by rwa [hgn]⟩
+  intro m hm
+  have : g.homeo m = f.homeo m := by
+    rw [show g.homeo = homeo' by rfl]
+    simp only [eq_mp_eq_cast, dite_eq_right_iff, homeo']
+    exact fun hmn => False.elim <| hm hmn
+  rw [this]
+
+private class stableHomeoSequence (X : Type*) [TopologicalSpace X] (U : ℕ → Set X) where
+  seq : homeoSequence X U
+  n : ℕ
+  hstable : ∀ k ≤ n,
+    k > 1 → EqOn (seq.homeo k).φ (seq.homeo (k - 1)).φ (closure (U (k - 2)))
+
+private instance stableHomeoSequence_mk {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+    (seq : homeoSequence X U) (n : ℕ)
+    (hstable : ∀ k ≤ n,
+      k > 1 → EqOn (seq.homeo k).φ (seq.homeo (k - 1)).φ (closure (U (k - 2)))) :
+  stableHomeoSequence X U := { seq, n, hstable }
+
+private instance stableHomeoSequence_from_unstable
+    {X : Type*} [TopologicalSpace X] {U : ℕ → Set X} (seq : homeoSequence X U) :
+  stableHomeoSequence X U := stableHomeoSequence_mk seq 1
+    (fun _ hk hk' => False.elim <| (lt_self_iff_false 1).mp <| lt_of_lt_of_le hk' hk)
+
+lemma stabilize_stableHomeoSequence {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+    (homeoSeq : stableHomeoSequence X U)
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
+    ∃ s' : stableHomeoSequence X U, s'.n = homeoSeq.n + 1 ∧
+      ∀ k ≤ homeoSeq.n, (s'.seq.homeo k).φ = (homeoSeq.seq.homeo k).φ := by
+  let n := homeoSeq.n
+  by_cases hn : n = 0
+  · use stableHomeoSequence_from_unstable homeoSeq.seq
+    constructor
+    · simp_all only [zero_add, n]
+      rfl
+    · exact fun k hk => by simp only
+  · have hn' : n + 1 > 1 := Nat.sub_ne_zero_iff_lt.mp hn
+    have cut_paste := homeoSequence_cut_and_paste hn' homeoSeq.seq hExhaustion
+    let seq' : homeoSequence X U := cut_paste.choose
+    obtain ⟨hfirst_n, hEqOn, _⟩ := cut_paste.choose_spec
+    simp only [Nat.add_one_sub_one, Nat.reduceSubDiff] at hEqOn
+    have hStable' : ∀ k ≤ n + 1,
+        k > 1 → EqOn (seq'.homeo k).φ (seq'.homeo (k - 1)).φ (closure (U (k - 2))) := by
+      intro k hk hk₁
+      by_cases h : k ≤ n
+      · have hk_lt : k < n + 1 := Order.lt_add_one_iff.mpr h
+        rw [hfirst_n k <| ne_of_lt hk_lt,
+            hfirst_n (k - 1) <| ne_of_lt <| lt_trans (Nat.sub_one_lt_of_lt hk₁) hk_lt]
+        exact stableHomeoSequence.hstable k h hk₁
+      · rw [Nat.le_antisymm hk <| Nat.lt_of_not_le h]
+        simp only [Nat.add_one_sub_one, Nat.reduceSubDiff]
+        have : EqOn (seq'.homeo (n + 1)).φ (seq'.homeo n).φ (closure (U (n - 1))) := by
+          rwa [hfirst_n n <| Nat.ne_add_one n]
+        exact this
+    refine ⟨stableHomeoSequence_mk seq' (n + 1) hStable', rfl, ?_⟩
+    exact fun k hk => by rw [hfirst_n k (ne_of_lt <| lt_of_le_of_lt hk <| lt_add_one n)]
+
+/- Given an exhaustion U : ℕ → Set X by precompact open sets homeomorphic to ℝ,
+   construct a sequence of OpenPartialHomeomorphisms of the form
+   ψ n : U n → Ioo (- (n + 1)) (n + 1) that stabilize, in the sense that
+   ψ n is equal to ψ (n - 1) on the closure of U (n - 2) for all n > 1. -/
+theorem stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
     (hOpen : ∀ n, IsOpen (U n)) (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ))
     (hPrecompact : ∀ n, IsCompact (closure (U n)))
     (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
-    ∃ ψ : ℕ → OpenPartialHomeomorph X ℝ, --∃ x ∈ U 0, ∃ y ∈ U 0,
-      ∀ n, --(ψ n) x < (ψ n) y ∧
-      (ψ n).source = U n ∧ (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1) ∧
-      --(n > 0 → (ψ n) '' (closure (U (n - 1))) = Icc (- n : ℝ) n) ∧
-      (n > 1 → EqOn (ψ n) (ψ (n - 1)) (closure (U (n - 2)))) := by
+    ∃ ψ : ℕ → OpenPartialHomeomorph X ℝ,
+      (∀ n, (ψ n).source = U n) ∧ (∀ n, (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1)) ∧
+      (∀ n > 1, EqOn (ψ n) (ψ (n - 1)) (closure (U (n - 2)))) := by
   obtain ⟨φ, x, hx, y, hy, hφ⟩ :=
     increasing_oriented_interval_homeos hOpen hReal hPrecompact hExhaustion
-  have φClass : (n : ℕ) → homeoUn X U n := by
-    intro n
-    obtain ⟨hxy, hSource, hTarget, hClosure₁, hClosure₂⟩ := hφ n
-    exact homeoUn_mk U n (φ n) hSource hTarget hx hy hxy hClosure₁ hClosure₂
-  -- -- have {n n' : ℕ} (h1 : n > 1) (hn : n = n' + 1) : n > 1 := by
-  -- --   exact Nat.lt_of_succ_le h1
-  -- have stableHomeo (n : ℕ) : homeoUn X U n :=
-  --   match n with
-  --   | 0 => φClass 0
-  --   | 1 => φClass 1
-  --   | n' + 1 =>
-  --     homeoUn_cut_and_paste (Nat.lt_of_succ_le _) (φClass n) (stableHomeo n')
+  have hxy := fun n => (hφ n).left
+  have hSource := fun n => (hφ n).right.left
+  have hTarget := fun n => (hφ n).right.right.left
+  have hClosure₁ := fun n => (hφ n).right.right.right.left
+  have hClosure₂ := fun n => (hφ n).right.right.right.right
+  -- Package the partial homeomorphisms φ n : U n → ℝ into a sequence
+  let φClass : (n : ℕ) → homeoUn X U n := fun n => homeoUn_mk U n (φ n)
+      (hSource n) (hTarget n) hx hy (hxy n) (hClosure₁ n) (hClosure₂ n)
+  have hx' : ∀ n, (φClass n).x = x := fun n => by rfl
+  have hy' : ∀ n, (φClass n).y = y := fun n => by rfl
+  let φSeq : homeoSequence X U := homeoSequence_mk X U φClass hx' hy'
+  let φSeq' : stableHomeoSequence X U := stableHomeoSequence_from_unstable φSeq
+  let iter : stableHomeoSequence X U → stableHomeoSequence X U :=
+     fun s => (stabilize_stableHomeoSequence s hExhaustion).choose
+  -- Now we iterate: φStable n should have the first n maps equal on their common domains
+  let φStable : ℕ → stableHomeoSequence X U := fun n => Nat.iterate iter n φSeq'
+  have hφIterate : ∀ n, φStable (n + 1) = iter (φStable n) :=
+    fun n => iterate_succ_apply' iter n φSeq'
+  let ψ : ℕ → OpenPartialHomeomorph X ℝ := fun n => ((φStable n).seq.homeo n).φ
+  have hψSource : ∀ n, (ψ n).source = U n := by
+    simp only [ψ]
+    exact fun n => ((φStable n).seq.homeo n).hSource
+  have hψTarget : ∀ n, (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1) := by
+    simp only [ψ]
+    exact fun n => ((φStable n).seq.homeo n).hTarget
+  -- Check that the various ψ n actually stabilize
+  have hφn (n : ℕ) : (φStable n).n = n + 1 := by
+    induction n with
+    | zero => rfl
+    | succ n hn =>
+      obtain ⟨hseqn, _⟩ := (stabilize_stableHomeoSequence (φStable n) hExhaustion).choose_spec
+      rw [hφIterate n, hseqn]
+      exact Nat.add_left_inj.mpr hn
+  have hφEq_stabilize (n : ℕ) : n > 0 →
+      EqOn ((φStable n).seq.homeo n).φ ((φStable (n + 1)).seq.homeo n).φ
+           (closure (U (n - 1))) := by
+    intro _
+    obtain ⟨_, h⟩ := (stabilize_stableHomeoSequence (φStable n) hExhaustion).choose_spec
+    have : n ≤ (φStable n).n := by
+      rw [hφn n]
+      exact Nat.le_add_right n 1
+    specialize h n this
+    rw [hφIterate n]
+    exact fun t _ => (congrFun (congrArg OpenPartialHomeomorph.toFun' (Eq.symm h)) t)
+  have hψEq (n : ℕ) : n > 0 →
+      EqOn (ψ n) (ψ (n + 1)) (closure (U (n - 1))) := by
+    intro hn
+    apply EqOn.trans (hφEq_stabilize n hn)
+    have : EqOn (ψ n) ((φStable (n + 1)).seq.homeo n).φ (closure (U (n - 1))) := by
+      simp_all only [iter, ψ]
+    let homeo := (φStable (n + 1)).seq.homeo
+    have : EqOn (homeo (n + 1)).φ (homeo n).φ (closure (U (n - 1))) := by
+      have hn' : n + 1 ≤ (φStable (n + 1)).n := by
+        rw [hφn (n + 1)]
+        exact Nat.le_add_right (n + 1) 1
+      have := (φStable (n + 1)).hstable (n + 1) hn' (Nat.lt_add_of_pos_left hn)
+      simpa only [Nat.add_one_sub_one, Nat.reduceSubDiff] using this
+    exact EqOn.symm this
+  refine ⟨ψ, hψSource, hψTarget, ?_⟩
+  intro n hn
+  have := EqOn.symm <| hψEq (n - 1) (Nat.zero_lt_sub_of_lt hn)
+  rwa [Nat.sub_add_cancel <| Nat.one_le_of_lt hn, ← Nat.sub_succ' n 1] at this
+
+/- A sequence φ n of OpenPartialHomeomorphs that stabilizes must eventually be
+   constant on each U n, in the sense that φ m is independent of m > n on U n. -/
+lemma stabilizing_eventually_constant {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+    (φ : ℕ → OpenPartialHomeomorph X ℝ)
+    (hφStable : ∀ n > 1, EqOn (φ n) (φ (n - 1)) (closure (U (n - 2))))
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
+    ∀ n m, m > n → EqOn (φ m) (φ (n + 1)) (U n) := by
+  intro n m hm
+  have hEqOn (i : ℕ) : i > n → EqOn (φ (i + 1)) (φ i) (U n) := by
+    intro hi
+    have hEq := hφStable (i + 1) <| Nat.lt_add_of_pos_left <| Nat.zero_lt_of_lt hi
+    simp only [add_tsub_cancel_right, Nat.reduceSubDiff] at hEq
+    apply hEq.mono <| subset_trans ?_ subset_closure
+    exact subset_of_increasing_chain hExhaustion n (i - 1) <| Nat.le_sub_one_of_lt hi
+  have hEqInduction (i : ℕ) : EqOn (φ (n + 1 + i)) (φ (n + 1)) (U n) := by
+    induction i with
+    | zero => simp only [add_zero]; exact fun x hx => rfl
+    | succ i hi =>
+      apply EqOn.trans (hEqOn (n + 1 + i) ?_) hi
+      exact Nat.lt_add_right i <| lt_add_one n
+  rw [← Nat.add_sub_of_le hm]
+  exact hEqInduction (m - (n + 1))
+
+lemma exists_mem_of_cover {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+    (hUniv : ⋃ n, U n = univ) (x : X) : ∃ n, x ∈ U n := by
+  obtain ⟨V, hV, _⟩ := mem_of_subset_of_mem (univ_subset_iff.mpr hUniv) (mem_univ x)
+  obtain ⟨n, hU⟩ := mem_range.mp hV
+  subst V
+  use n
+
+lemma pointwise_limit_of_stabilizing {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+    (hUniv : ⋃ n, U n = univ) (φ : ℕ → OpenPartialHomeomorph X ℝ)
+    (hφStable : ∀ n > 1, EqOn (φ n) (φ (n - 1)) (closure (U (n - 2))))
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
+    ∃ f : X → ℝ, ∀ n, EqOn f (φ (n + 1)) (U n) := by
+  classical
+  let minimal_Un (x : X) := Nat.find (exists_mem_of_cover hUniv x)
+  use fun x => φ ((minimal_Un x) + 1) x
+  intro n x hx
+  have : minimal_Un x < n + 1 := by
+    apply Order.lt_add_one_iff.mpr
+    exact Nat.find_min' (exists_mem_of_cover hUniv x) hx
+  exact Eq.symm <| stabilizing_eventually_constant φ hφStable hExhaustion
+    (minimal_Un x) (n + 1) this <| Nat.find_spec (exists_mem_of_cover hUniv x)
+
+lemma continuous_of_pointwise_limit_of_stabilizing {X : Type*}
+    [TopologicalSpace X] {U : ℕ → Set X} (hOpen : ∀ n, IsOpen (U n))
+    (hUniv : ⋃ n, U n = univ) (φ : ℕ → OpenPartialHomeomorph X ℝ)
+    (hφSource : ∀ n, (φ n).source = U n)
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1))
+    {f : X → ℝ} (hEqOn : ∀ n, EqOn f (φ (n + 1)) (U n)) : Continuous f := by
+  apply continuous_iff_continuousAt.mpr
+  intro x
+  obtain ⟨n, hn⟩ := exists_mem_of_cover hUniv x
+  have hContOn : ContinuousOn (φ (n + 1)) (U (n + 1)) := by
+    rw [← hφSource (n + 1)]
+    exact (φ (n + 1)).continuousOn
+  have hContOn' : ContinuousOn f (U n) := by
+    apply ContinuousOn.congr ?_ (hEqOn n)
+    exact hContOn.mono <| subset_trans subset_closure (hExhaustion n)
+  exact (continuousWithinAt_iff_continuousAt <| (hOpen n).mem_nhds hn).mp (hContOn' x hn)
+
+lemma injective_of_pointwise_limit_of_stabilizing {X : Type*}
+    [TopologicalSpace X] {U : ℕ → Set X}
+    (hUniv : ⋃ n, U n = univ) (φ : ℕ → OpenPartialHomeomorph X ℝ)
+    (hφSource : ∀ n, (φ n).source = U n)
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1))
+    {f : X → ℝ} (hEqOn : ∀ n, EqOn f (φ (n + 1)) (U n)) : Injective f := by
+  intro a b hfab
+  obtain ⟨k, hk⟩ := exists_mem_of_cover hUniv a
+  obtain ⟨m, hm⟩ := exists_mem_of_cover hUniv b
+  let n := max k m
+  have ha : a ∈ U n := subset_of_increasing_chain hExhaustion k n (le_max_left k m) hk
+  have hb : b ∈ U n := subset_of_increasing_chain hExhaustion m n (le_max_right k m) hm
+  have ha' : a ∈ U (n + 1) := subset_trans subset_closure (hExhaustion n) ha
+  have hb' : b ∈ U (n + 1) := subset_trans subset_closure (hExhaustion n) hb
+  rw [← hφSource (n + 1)] at ha' hb'
+  rw [hEqOn n ha, hEqOn n hb] at hfab
+  exact (φ (n + 1)).injOn ha' hb' hfab
+
+private lemma mem_Ioo_neg_pos_int (y : ℝ) : ∃ n : ℤ, y ∈ Ioo (- (n : ℝ)) n := by
+  -- have hNat : ⌊|y|⌋ + 1 ≥ 0 := by
+  --   refine Int.add_nonneg ?_ Int.one_nonneg
+  --   exact Int.floor_nonneg.mpr <| abs_nonneg y
+  use ⌊|y|⌋ + 1
+  apply mem_Ioo.mpr ⟨?_, ?_⟩
+  · by_cases h : y ≥ 0
+    · simp only [Int.cast_add, Int.cast_one, neg_add_rev, add_neg_lt_iff_lt_add]
+      have : y + ⌊|y|⌋ ≥ y := by
+        have : ⌊|y|⌋ ≥ 0 := Int.floor_nonneg.mpr <| abs_nonneg y
+        exact (le_add_iff_nonneg_right y).mpr <| Int.cast_nonneg this
+      apply lt_of_lt_of_le (lt_of_lt_of_le neg_one_lt_zero h) this
+    · simp only [abs_of_neg <| Std.not_le.mp h, Int.floor_neg, Int.cast_add,
+        Int.cast_neg, Int.cast_one, neg_add_rev, neg_neg, neg_add_lt_iff_lt_add]
+      rw [add_comm]
+      exact Int.ceil_lt_add_one y
+  · apply lt_of_le_of_lt (le_abs_self y) ?_
+    simp only [Int.cast_add, Int.cast_one, Int.lt_floor_add_one]
+
+lemma mem_Ioo_neg_pos (y : ℝ) : ∃ n : ℕ, y ∈ Ioo (- (n : ℝ)) n := by
+  obtain ⟨n, hn⟩ := mem_Ioo_neg_pos_int y
+  have : n ≥ 0 := by
+    have := neg_lt_iff_pos_add.mp <| nonempty_Ioo.mp (nonempty_of_mem hn)
+    simp only [pos_add_self_iff, Int.cast_pos] at this
+    exact Int.le_of_lt this
+  use n.toNat
+  have : (n.toNat : ℝ) = (n : ℝ) := congrArg Int.cast <| Int.toNat_of_nonneg this
+  rwa [this]
+
+lemma surjective_of_pointwise_limit_of_stabilizing {X : Type*}
+    [TopologicalSpace X] {U : ℕ → Set X}
+    (hUniv : ⋃ n, U n = univ) (φ : ℕ → OpenPartialHomeomorph X ℝ)
+    (hφTarget : ∀ n, (φ n).target = Ioo (-(n + 1 : ℝ)) (n + 1))
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1))
+    {f : X → ℝ} (hEqOn : ∀ n, EqOn f (φ (n + 1)) (U n)) : Surjective f := by
+  intro y
+  obtain ⟨n, hy⟩ := mem_Ioo_neg_pos y
   sorry
 
 /- Given a strictly increasing chain f 0 ⊂ f 1 ⊂ f 2 ⊂ of subsets of X, there
