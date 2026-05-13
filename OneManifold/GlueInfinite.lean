@@ -728,6 +728,7 @@ theorem stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ �
     (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
     ∃ ψ : ℕ → OpenPartialHomeomorph X ℝ,
       (∀ n, (ψ n).source = U n) ∧ (∀ n, (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1)) ∧
+      (∀ n > 0, (ψ n) '' closure (U (n - 1)) = Icc (- (n : ℝ)) n) ∧
       (∀ n > 1, EqOn (ψ n) (ψ (n - 1)) (closure (U (n - 2)))) := by
   obtain ⟨φ, x, hx, y, hy, hφ⟩ :=
     increasing_oriented_interval_homeos hOpen hReal hPrecompact hExhaustion
@@ -756,6 +757,9 @@ theorem stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ �
   have hψTarget : ∀ n, (ψ n).target = Ioo (- ((n + 1) : ℝ)) (n + 1) := by
     simp only [ψ]
     exact fun n => ((φStable n).seq.homeo n).hTarget
+  have hψClosure₁ : ∀ n > 0, (ψ n) '' (closure (U (n - 1))) = Icc (- (n : ℝ)) n := by
+    simp only [ψ]
+    exact fun n hn => ((φStable n).seq.homeo n).hClosure₁ hn
   -- Check that the various ψ n actually stabilize
   have hφn (n : ℕ) : (φStable n).n = n + 1 := by
     induction n with
@@ -789,7 +793,7 @@ theorem stabilizing_interval_homeos {X : Type*} [TopologicalSpace X] {U : ℕ �
       have := (φStable (n + 1)).hstable (n + 1) hn' (Nat.lt_add_of_pos_left hn)
       simpa only [Nat.add_one_sub_one, Nat.reduceSubDiff] using this
     exact EqOn.symm this
-  refine ⟨ψ, hψSource, hψTarget, ?_⟩
+  refine ⟨ψ, hψSource, hψTarget, hψClosure₁, ?_⟩
   intro n hn
   have := EqOn.symm <| hψEq (n - 1) (Nat.zero_lt_sub_of_lt hn)
   rwa [Nat.sub_add_cancel <| Nat.one_le_of_lt hn, ← Nat.sub_succ' n 1] at this
@@ -800,15 +804,15 @@ lemma stabilizing_eventually_constant {X : Type*} [TopologicalSpace X] {U : ℕ 
     (φ : ℕ → OpenPartialHomeomorph X ℝ)
     (hφStable : ∀ n > 1, EqOn (φ n) (φ (n - 1)) (closure (U (n - 2))))
     (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
-    ∀ n m, m > n → EqOn (φ m) (φ (n + 1)) (U n) := by
+    ∀ n m, m > n → EqOn (φ m) (φ (n + 1)) (closure (U n)) := by
   intro n m hm
-  have hEqOn (i : ℕ) : i > n → EqOn (φ (i + 1)) (φ i) (U n) := by
+  have hEqOn (i : ℕ) : i > n → EqOn (φ (i + 1)) (φ i) (closure (U n)) := by
     intro hi
     have hEq := hφStable (i + 1) <| Nat.lt_add_of_pos_left <| Nat.zero_lt_of_lt hi
     simp only [add_tsub_cancel_right, Nat.reduceSubDiff] at hEq
-    apply hEq.mono <| subset_trans ?_ subset_closure
+    apply hEq.mono <| closure_mono ?_
     exact subset_of_increasing_chain hExhaustion n (i - 1) <| Nat.le_sub_one_of_lt hi
-  have hEqInduction (i : ℕ) : EqOn (φ (n + 1 + i)) (φ (n + 1)) (U n) := by
+  have hEqInduction (i : ℕ) : EqOn (φ (n + 1 + i)) (φ (n + 1)) (closure (U n)) := by
     induction i with
     | zero => simp only [add_zero]; exact fun x hx => rfl
     | succ i hi =>
@@ -819,25 +823,30 @@ lemma stabilizing_eventually_constant {X : Type*} [TopologicalSpace X] {U : ℕ 
 
 lemma exists_mem_of_cover {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
     (hUniv : ⋃ n, U n = univ) (x : X) : ∃ n, x ∈ U n := by
-  obtain ⟨V, hV, _⟩ := mem_of_subset_of_mem (univ_subset_iff.mpr hUniv) (mem_univ x)
+  obtain ⟨V, hV, hx⟩ := mem_of_subset_of_mem (univ_subset_iff.mpr hUniv) (mem_univ x)
   obtain ⟨n, hU⟩ := mem_range.mp hV
   subst V
   use n
+
+lemma exists_mem_of_closure_of_cover {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
+    (hUniv : ⋃ n, U n = univ) (x : X) : ∃ n, x ∈ closure (U n) := by
+  obtain ⟨n, hn⟩ := exists_mem_of_cover hUniv x
+  exact ⟨n, subset_closure hn⟩
 
 lemma pointwise_limit_of_stabilizing {X : Type*} [TopologicalSpace X] {U : ℕ → Set X}
     (hUniv : ⋃ n, U n = univ) (φ : ℕ → OpenPartialHomeomorph X ℝ)
     (hφStable : ∀ n > 1, EqOn (φ n) (φ (n - 1)) (closure (U (n - 2))))
     (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
-    ∃ f : X → ℝ, ∀ n, EqOn f (φ (n + 1)) (U n) := by
+    ∃ f : X → ℝ, ∀ n, EqOn f (φ (n + 1)) (closure (U n)) := by
   classical
-  let minimal_Un (x : X) := Nat.find (exists_mem_of_cover hUniv x)
+  let minimal_Un (x : X) := Nat.find (exists_mem_of_closure_of_cover hUniv x)
   use fun x => φ ((minimal_Un x) + 1) x
   intro n x hx
   have : minimal_Un x < n + 1 := by
     apply Order.lt_add_one_iff.mpr
-    exact Nat.find_min' (exists_mem_of_cover hUniv x) hx
+    exact Nat.find_min' (exists_mem_of_closure_of_cover hUniv x) hx
   exact Eq.symm <| stabilizing_eventually_constant φ hφStable hExhaustion
-    (minimal_Un x) (n + 1) this <| Nat.find_spec (exists_mem_of_cover hUniv x)
+    (minimal_Un x) (n + 1) this <| Nat.find_spec (exists_mem_of_closure_of_cover hUniv x)
 
 lemma continuous_of_pointwise_limit_of_stabilizing {X : Type*}
     [TopologicalSpace X] {U : ℕ → Set X} (hOpen : ∀ n, IsOpen (U n))
@@ -875,9 +884,6 @@ lemma injective_of_pointwise_limit_of_stabilizing {X : Type*}
   exact (φ (n + 1)).injOn ha' hb' hfab
 
 private lemma mem_Ioo_neg_pos_int (y : ℝ) : ∃ n : ℤ, y ∈ Ioo (- (n : ℝ)) n := by
-  -- have hNat : ⌊|y|⌋ + 1 ≥ 0 := by
-  --   refine Int.add_nonneg ?_ Int.one_nonneg
-  --   exact Int.floor_nonneg.mpr <| abs_nonneg y
   use ⌊|y|⌋ + 1
   apply mem_Ioo.mpr ⟨?_, ?_⟩
   · by_cases h : y ≥ 0
@@ -893,58 +899,75 @@ private lemma mem_Ioo_neg_pos_int (y : ℝ) : ∃ n : ℤ, y ∈ Ioo (- (n : ℝ
   · apply lt_of_le_of_lt (le_abs_self y) ?_
     simp only [Int.cast_add, Int.cast_one, Int.lt_floor_add_one]
 
-lemma mem_Ioo_neg_pos (y : ℝ) : ∃ n : ℕ, y ∈ Ioo (- (n : ℝ)) n := by
+lemma mem_Ioo_neg_pos (y : ℝ) : ∃ n : ℕ, n > 0 ∧ y ∈ Ioo (- (n : ℝ)) n := by
   obtain ⟨n, hn⟩ := mem_Ioo_neg_pos_int y
-  have : n ≥ 0 := by
+  have : n > 0 := by
     have := neg_lt_iff_pos_add.mp <| nonempty_Ioo.mp (nonempty_of_mem hn)
-    simp only [pos_add_self_iff, Int.cast_pos] at this
-    exact Int.le_of_lt this
-  use n.toNat
-  have : (n.toNat : ℝ) = (n : ℝ) := congrArg Int.cast <| Int.toNat_of_nonneg this
+    simpa only [pos_add_self_iff, Int.cast_pos] using this
+  refine ⟨n.toNat, Int.pos_iff_toNat_pos.mp this, ?_⟩
+  have : (n.toNat : ℝ) = (n : ℝ) :=
+    congrArg Int.cast <| Int.toNat_of_nonneg <| Int.le_of_lt this
   rwa [this]
 
 lemma surjective_of_pointwise_limit_of_stabilizing {X : Type*}
     [TopologicalSpace X] {U : ℕ → Set X}
-    (hUniv : ⋃ n, U n = univ) (φ : ℕ → OpenPartialHomeomorph X ℝ)
-    (hφTarget : ∀ n, (φ n).target = Ioo (-(n + 1 : ℝ)) (n + 1))
-    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1))
-    {f : X → ℝ} (hEqOn : ∀ n, EqOn f (φ (n + 1)) (U n)) : Surjective f := by
+    (φ : ℕ → OpenPartialHomeomorph X ℝ)
+    (hClosure₁ : ∀ n > 0, (φ n) '' (closure (U (n - 1))) = Icc (-n : ℝ) n)
+    {f : X → ℝ} (hEqOn : ∀ n, EqOn f (φ (n + 1)) (closure (U n))) : Surjective f := by
   intro y
-  obtain ⟨n, hy⟩ := mem_Ioo_neg_pos y
-  sorry
+  obtain ⟨n, _, hy⟩ := mem_Ioo_neg_pos y
+  have : f '' (closure (U n)) = Icc (-(n + 1) : ℝ) (n + 1) := by
+    have := hClosure₁ (n + 1) (Nat.zero_lt_succ n)
+    simp only [Nat.add_sub_self_right n 1] at this
+    rw [image_congr (hEqOn n), this]
+    simp only [Nat.cast_add, Nat.cast_one, neg_add_rev]
+  obtain ⟨x, hxU, hfx⟩ : y ∈ f '' (closure (U n)) := by
+    apply mem_of_subset_of_mem ?_ hy
+    rw [this]
+    apply subset_trans Ioo_subset_Icc_self ?_
+    apply (Icc_subset_Icc_iff ?_).mpr ⟨?_, ?_⟩
+    · exact neg_le_self <| Nat.cast_nonneg' n
+    · simp only [neg_add_rev, add_le_iff_nonpos_left, Left.neg_nonpos_iff, zero_le_one]
+    · exact le_of_lt <| lt_add_one (n : ℝ)
+  use x
 
-/- Given a strictly increasing chain f 0 ⊂ f 1 ⊂ f 2 ⊂ of subsets of X, there
-   is a function g : ℕ → X such that each g n belongs to f n but not (assuming
-   n ≠ 0) to f (n - 1). -/
-lemma strictMono_subset_representatives {X : Type*} [TopologicalSpace X]
-    (f : ℕ → Set X) (hNE : Nonempty (f 0)) (hfStrictMono : ∀ m n, m < n → f m ⊂ f n) :
-    ∃ g : ℕ → X, ∀ n, (g n ∈ f n) ∧ (NeZero n → g n ∉ f (n - 1)) := by
-  have nonempty_f_diff (n : ℕ) : n ≠ 0 → Nonempty {x : X | x ∈ f n \ f (n - 1)} := by
-    intro hn
-    have := hfStrictMono (n - 1) n (Nat.sub_one_lt hn)
-    obtain ⟨_, x, hmem, hnotmem⟩ := ssubset_iff_exists.mp this
-    exact ⟨x, mem_diff_of_mem hmem hnotmem⟩
-  use fun n => if hn : n = 0 then hNE.some else (nonempty_f_diff n hn).some.val
-  intro n
-  by_cases hn : n = 0
-  · simp only [imp_iff_not_or, not_neZero.mpr hn, Or.intro_left _ id, and_true]
-    simp only [hn, ↓reduceDIte, Subtype.coe_prop]
-  · simp only [setOf_mem_eq, hn, ↓reduceDIte, neZero_iff.mpr hn, true_implies]
-    have mem_f_diff := (nonempty_f_diff n hn).some.property
-    simp only [setOf_mem_eq] at mem_f_diff
-    exact ⟨mem_of_mem_diff mem_f_diff, notMem_of_mem_diff mem_f_diff⟩
+-- /- Given a strictly increasing chain f 0 ⊂ f 1 ⊂ f 2 ⊂ of subsets of X, there
+--    is a function g : ℕ → X such that each g n belongs to f n but not (assuming
+--    n ≠ 0) to f (n - 1). -/
+-- lemma strictMono_subset_representatives {X : Type*} [TopologicalSpace X]
+--     (f : ℕ → Set X) (hNE : Nonempty (f 0)) (hfStrictMono : ∀ m n, m < n → f m ⊂ f n) :
+--     ∃ g : ℕ → X, ∀ n, (g n ∈ f n) ∧ (NeZero n → g n ∉ f (n - 1)) := by
+--   have nonempty_f_diff (n : ℕ) : n ≠ 0 → Nonempty {x : X | x ∈ f n \ f (n - 1)} := by
+--     intro hn
+--     have := hfStrictMono (n - 1) n (Nat.sub_one_lt hn)
+--     obtain ⟨_, x, hmem, hnotmem⟩ := ssubset_iff_exists.mp this
+--     exact ⟨x, mem_diff_of_mem hmem hnotmem⟩
+--   use fun n => if hn : n = 0 then hNE.some else (nonempty_f_diff n hn).some.val
+--   intro n
+--   by_cases hn : n = 0
+--   · simp only [imp_iff_not_or, not_neZero.mpr hn, Or.intro_left _ id, and_true]
+--     simp only [hn, ↓reduceDIte, Subtype.coe_prop]
+--   · simp only [setOf_mem_eq, hn, ↓reduceDIte, neZero_iff.mpr hn, true_implies]
+--     have mem_f_diff := (nonempty_f_diff n hn).some.property
+--     simp only [setOf_mem_eq] at mem_f_diff
+--     exact ⟨mem_of_mem_diff mem_f_diff, notMem_of_mem_diff mem_f_diff⟩
 
 theorem homeomorph_real_of_union_real {X : Type*} [TopologicalSpace X]
     {U : ℕ → Set X} (hUnion : ⋃ n, U n = univ) (hOpen : ∀ n, IsOpen (U n))
     (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ)) (hPrecompact : ∀ n, IsCompact (closure (U n)))
     (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1)) :
     Nonempty (X ≃ₜ ℝ) := by
-  apply Nonempty.intro <| (Homeomorph.Set.univ X).symm.trans ?_
-  rw [← hUnion]
-
-  -- let α₀ : ℝ ≃ₜ U 0 := (hReal 0).some.symm
-  -- obtain ⟨φ₀ : U 0 ≃ₜ ℝ, hφ₀0, hφ₀1⟩ := homeomorph_open_real_fix_two_points
-  --   (hReal 0) (fun h => zero_ne_one (α₀.injective h)) zero_ne_one
-  -- have hNEf0 : Nonempty (U 0) := Nonempty.intro <| (hReal 0).some.symm 0
-  -- obtain ⟨p, hp⟩ := strictMono_subset_representatives f hNEf0 hfStrictMono
-  sorry
+  obtain ⟨φ, hφSource, hφTarget, hφClosure₁, hφStable⟩ :=
+    stabilizing_interval_homeos hOpen hReal hPrecompact hExhaustion
+  obtain ⟨f, hEqOn⟩ := pointwise_limit_of_stabilizing hUnion φ hφStable hExhaustion
+  have hEqOn' : ∀ n, EqOn f (φ (n + 1)) (U n) := fun n => (hEqOn n).mono subset_closure
+  have hfCont : Continuous f := continuous_of_pointwise_limit_of_stabilizing
+    hOpen hUnion φ hφSource hExhaustion hEqOn'
+  have hfBijective : Bijective f := by
+    refine ⟨?_, ?_⟩
+    · exact injective_of_pointwise_limit_of_stabilizing hUnion φ hφSource hExhaustion hEqOn'
+    · apply surjective_of_pointwise_limit_of_stabilizing φ hφClosure₁ hEqOn
+  have hfOpen : IsOpenMap f := by
+    sorry
+  have hfHomeo : IsHomeomorph f := IsHomeomorph.mk hfCont hfOpen hfBijective
+  exact Nonempty.intro hfHomeo.homeomorph
