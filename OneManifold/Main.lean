@@ -2,6 +2,7 @@ import Mathlib.Tactic
 import Mathlib.Geometry.Manifold.Instances.Real
 import Mathlib.Topology.Connected.TotallyDisconnected
 import «OneManifold».Disconnected
+import «OneManifold».Noncompact
 import «OneManifold».RealOrCircle
 
 /-!
@@ -13,6 +14,9 @@ A 1-manifold is a second-countable Hausdorff space covered by charts to ℝ¹.
 
 - `circle_homeomorph_of_closed_one_manifold` : A compact, connected 1-manifold
   is homeomorphic to a circle.
+
+- `real_or_circle_homeomorph_of_one_manifold` : A connected 1-manifold is
+  homeomorphic to either ℝ or a circle.
 
 - `sigma_circle_homeomorph` : If `M` is a compact 1-manifold, then there is
   a unique `n ∈ ℕ` such that `M` is homeomorphic to a disjoint union
@@ -32,22 +36,23 @@ theorem circle_homeomorph_of_closed_one_manifold (M : Type*) [TopologicalSpace M
   have hCover : @univ M ⊆ ⋃ p : M, U p := fun x _ => mem_iUnion_of_mem x (hUmem x)
   have hFinite := CompactSpace.isCompact_univ.elim_finite_subcover U hUOpen hCover
   have hRealCircle := real_or_circle_of_finitely_covered_one_manifold M U hUOpen hUReal hFinite
-  have : ¬ Nonempty (M ≃ₜ ℝ) := by
-    exact fun h => (not_compactSpace_iff.mpr instNoncompactSpaceReal) h.some.compactSpace
+  have : ¬ Nonempty (M ≃ₜ ℝ) :=
+    fun h => (not_compactSpace_iff.mpr instNoncompactSpaceReal) h.some.compactSpace
   simpa only [this, false_or] using hRealCircle
 
-theorem circle_homeomorph_of_closed_one_manifold' (M : Type*) [TopologicalSpace M]
-    [T2Space M] [ConnectedSpace M] [CompactSpace M] [ChartedSpace ℝ¹ M] :
-    Nonempty (M ≃ₜ Metric.sphere (0 : ℂ) 1) := by
-  exact circle_homeomorph_of_closed_one_manifold M
+/- A connected, second countable, Hausdorff space covered by charts to ℝ¹
+   (i.e., a connected 1-manifold) is homeomorphic to either ℝ or a circle. -/
+theorem real_or_circle_homeomorph_of_one_manifold (M : Type*) [TopologicalSpace M]
+    [SecondCountableTopology M] [T2Space M] [ConnectedSpace M] [ChartedSpace ℝ¹ M] :
+    Nonempty (M ≃ₜ ℝ) ∨ Nonempty (M ≃ₜ Circle) := real_or_circle_of_one_manifold M
 
 /- Every compact, connected component of a 1-manifold is homeomorphic to a circle. -/
 lemma circle_homeomorph_of_compact_component (M : Type*) [TopologicalSpace M]
     [T2Space M] [ChartedSpace ℝ¹ M] : ∀ x : M,
       IsCompact (connectedComponent x) → Nonempty (connectedComponent x ≃ₜ Circle) := by
   intro x hx
-  haveI : ConnectedSpace (connectedComponent x) := by
-    exact isConnected_iff_connectedSpace.mp isConnected_connectedComponent
+  haveI : ConnectedSpace (connectedComponent x) :=
+    isConnected_iff_connectedSpace.mp isConnected_connectedComponent
   haveI : CompactSpace (connectedComponent x) := isCompact_iff_compactSpace.mp hx
   haveI : ChartedSpace ℝ¹ (connectedComponent x) := by
     refine TopologicalSpace.Opens.instChartedSpace ⟨connectedComponent x, ?_⟩
@@ -55,21 +60,43 @@ lemma circle_homeomorph_of_compact_component (M : Type*) [TopologicalSpace M]
     exact isOpen_connectedComponent
   exact circle_homeomorph_of_closed_one_manifold (connectedComponent x)
 
+/- Every connected component of a 1-manifold is homeomorphic to ℝ or a circle. -/
+lemma real_or_circle_homeomorph_of_component (M : Type*) [TopologicalSpace M]
+    [SecondCountableTopology M] [T2Space M] [ChartedSpace ℝ¹ M] : ∀ x : M,
+      Nonempty (connectedComponent x ≃ₜ ℝ) ∨ Nonempty (connectedComponent x ≃ₜ Circle) := by
+  intro x
+  haveI : ConnectedSpace (connectedComponent x) :=
+    isConnected_iff_connectedSpace.mp isConnected_connectedComponent
+  haveI : ChartedSpace ℝ¹ (connectedComponent x) := by
+    refine TopologicalSpace.Opens.instChartedSpace ⟨connectedComponent x, ?_⟩
+    haveI : LocallyConnectedSpace M := ChartedSpace.locallyConnectedSpace ℝ¹ M
+    exact isOpen_connectedComponent
+  exact real_or_circle_homeomorph_of_one_manifold (connectedComponent x)
+
 /- Every connected component of a compact 1-manifold is homeomorphic to a circle. -/
 lemma circle_homeomorph_component_of_compact (M : Type*) [TopologicalSpace M]
     [T2Space M] [CompactSpace M] [ChartedSpace ℝ¹ M] :
-    ∀ x : M, Nonempty (connectedComponent x ≃ₜ Circle) := by
-  exact fun x => circle_homeomorph_of_compact_component M x
-                 isClosed_connectedComponent.isCompact
+    ∀ x : M, Nonempty (connectedComponent x ≃ₜ Circle) :=
+  fun x => circle_homeomorph_of_compact_component M x isClosed_connectedComponent.isCompact
 
 lemma circle_homeomorph_preimage_connectedComponents (M : Type*) [TopologicalSpace M]
     [T2Space M] [CompactSpace M] [ChartedSpace ℝ¹ M] :
     ∀ c : ConnectedComponents M,
-      Nonempty ((ConnectedComponents.mk) ⁻¹' {c} ≃ₜ Circle) := by
+      Nonempty (ConnectedComponents.mk ⁻¹' {c} ≃ₜ Circle) := by
   intro c
   obtain ⟨x, hx⟩ := ConnectedComponents.surjective_coe c
   rw [← hx, connectedComponents_preimage_singleton]
   exact circle_homeomorph_component_of_compact M x
+
+lemma real_or_circle_homeomorph_preimage_connectedComponents (M : Type*) [TopologicalSpace M]
+    [SecondCountableTopology M] [T2Space M] [ChartedSpace ℝ¹ M] :
+    ∀ c : ConnectedComponents M,
+      Nonempty (ConnectedComponents.mk ⁻¹' {c} ≃ₜ ℝ) ∨
+      Nonempty ((ConnectedComponents.mk) ⁻¹' {c} ≃ₜ Circle) := by
+  intro c
+  obtain ⟨x, hx⟩ := ConnectedComponents.surjective_coe c
+  rw [← hx, connectedComponents_preimage_singleton]
+  exact real_or_circle_homeomorph_of_component M x
 
 /- A compact Hausdorff space covered by charts to ℝ¹ is homeomorphic to a
    disjoint union of `n` circles, for exactly one value of `n ∈ ℕ`. -/

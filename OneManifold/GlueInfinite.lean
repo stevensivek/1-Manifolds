@@ -3,6 +3,19 @@ import «OneManifold».GluePartialHomeomorph
 import «OneManifold».RealCover
 import «OneManifold».RealLemmas
 
+/-!
+This file proves a key technical result used in the classification of
+non-compact 1-manifolds.
+
+## Main result
+
+- `homeomorph_real_of_union_real` : If a space X is the union of a countably
+  infinite collection of open sets `U : ℕ → Set X`, where each `U n` is
+  homeomorphic to ℝ and `closure (U n)` is a compact subset of `U (n + 1)`,
+  then X is homeomorphic to ℝ.
+
+-/
+
 open Set Function Topology
 set_option linter.style.emptyLine false
 
@@ -865,6 +878,32 @@ lemma continuous_of_pointwise_limit_of_stabilizing {X : Type*}
     exact hContOn.mono <| subset_trans subset_closure (hExhaustion n)
   exact (continuousWithinAt_iff_continuousAt <| (hOpen n).mem_nhds hn).mp (hContOn' x hn)
 
+lemma isOpenMap_of_pointwise_limit_of_stabilizing {X : Type*}
+    [TopologicalSpace X] {U : ℕ → Set X} (hOpen : ∀ n, IsOpen (U n))
+    (hUniv : ⋃ n, U n = univ) (φ : ℕ → OpenPartialHomeomorph X ℝ)
+    (hφSource : ∀ n, (φ n).source = U n)
+    (hExhaustion : ∀ n, closure (U n) ⊆ U (n + 1))
+    {f : X → ℝ} (hEqOn : ∀ n, EqOn f (φ (n + 1)) (U n)) : IsOpenMap f := by
+  intro Ω hΩ
+  have hNhd : ∀ x ∈ Ω, ∃ V : Set X, x ∈ V ∧ V ⊆ Ω ∧ IsOpen (f '' V) := by
+    intro x hx
+    obtain ⟨n, hn⟩ := exists_mem_of_cover hUniv x
+    refine ⟨U n ∩ Ω, mem_inter hn hx, inter_subset_right, ?_⟩
+    rw [image_congr <| (hEqOn n).mono <| inter_subset_left]
+    apply OpenPartialHomeomorph.isOpen_image_of_subset_source (φ (n + 1)) ?_ ?_
+    · exact (hOpen n).inter hΩ
+    · rw [hφSource (n + 1)]
+      exact subset_trans inter_subset_left <| subset_trans subset_closure (hExhaustion n)
+  let V : Ω → Set X := fun x => (hNhd x <| Subtype.coe_prop x).choose
+  have hEq : ⋃ (x : X) (hx : x ∈ Ω), V ⟨x, hx⟩ = Ω := by
+    apply Subset.antisymm
+    · apply iUnion₂_subset_iff.mpr
+      exact fun x hx => (hNhd x hx).choose_spec.right.left
+    · exact fun x hx => mem_iUnion₂.mpr ⟨x, hx, (hNhd x hx).choose_spec.left⟩
+  rw [← hEq, image_iUnion₂ f (fun x hx ↦ V ⟨x, hx⟩)]
+  apply isOpen_iUnion <| fun x => isOpen_iUnion <| fun hx => ?_
+  exact (hNhd x hx).choose_spec.right.right
+
 lemma injective_of_pointwise_limit_of_stabilizing {X : Type*}
     [TopologicalSpace X] {U : ℕ → Set X}
     (hUniv : ⋃ n, U n = univ) (φ : ℕ → OpenPartialHomeomorph X ℝ)
@@ -931,27 +970,6 @@ lemma surjective_of_pointwise_limit_of_stabilizing {X : Type*}
     · exact le_of_lt <| lt_add_one (n : ℝ)
   use x
 
--- /- Given a strictly increasing chain f 0 ⊂ f 1 ⊂ f 2 ⊂ of subsets of X, there
---    is a function g : ℕ → X such that each g n belongs to f n but not (assuming
---    n ≠ 0) to f (n - 1). -/
--- lemma strictMono_subset_representatives {X : Type*} [TopologicalSpace X]
---     (f : ℕ → Set X) (hNE : Nonempty (f 0)) (hfStrictMono : ∀ m n, m < n → f m ⊂ f n) :
---     ∃ g : ℕ → X, ∀ n, (g n ∈ f n) ∧ (NeZero n → g n ∉ f (n - 1)) := by
---   have nonempty_f_diff (n : ℕ) : n ≠ 0 → Nonempty {x : X | x ∈ f n \ f (n - 1)} := by
---     intro hn
---     have := hfStrictMono (n - 1) n (Nat.sub_one_lt hn)
---     obtain ⟨_, x, hmem, hnotmem⟩ := ssubset_iff_exists.mp this
---     exact ⟨x, mem_diff_of_mem hmem hnotmem⟩
---   use fun n => if hn : n = 0 then hNE.some else (nonempty_f_diff n hn).some.val
---   intro n
---   by_cases hn : n = 0
---   · simp only [imp_iff_not_or, not_neZero.mpr hn, Or.intro_left _ id, and_true]
---     simp only [hn, ↓reduceDIte, Subtype.coe_prop]
---   · simp only [setOf_mem_eq, hn, ↓reduceDIte, neZero_iff.mpr hn, true_implies]
---     have mem_f_diff := (nonempty_f_diff n hn).some.property
---     simp only [setOf_mem_eq] at mem_f_diff
---     exact ⟨mem_of_mem_diff mem_f_diff, notMem_of_mem_diff mem_f_diff⟩
-
 theorem homeomorph_real_of_union_real {X : Type*} [TopologicalSpace X]
     {U : ℕ → Set X} (hUnion : ⋃ n, U n = univ) (hOpen : ∀ n, IsOpen (U n))
     (hReal : ∀ n, Nonempty (U n ≃ₜ ℝ)) (hPrecompact : ∀ n, IsCompact (closure (U n)))
@@ -967,7 +985,7 @@ theorem homeomorph_real_of_union_real {X : Type*} [TopologicalSpace X]
     refine ⟨?_, ?_⟩
     · exact injective_of_pointwise_limit_of_stabilizing hUnion φ hφSource hExhaustion hEqOn'
     · apply surjective_of_pointwise_limit_of_stabilizing φ hφClosure₁ hEqOn
-  have hfOpen : IsOpenMap f := by
-    sorry
+  have hfOpen : IsOpenMap f :=
+    isOpenMap_of_pointwise_limit_of_stabilizing hOpen hUnion φ hφSource hExhaustion hEqOn'
   have hfHomeo : IsHomeomorph f := IsHomeomorph.mk hfCont hfOpen hfBijective
   exact Nonempty.intro hfHomeo.homeomorph

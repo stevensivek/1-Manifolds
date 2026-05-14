@@ -1,7 +1,9 @@
 import «OneManifold».Disconnected
 import «OneManifold».GlueCircle
+import «OneManifold».GlueInfinite
 import «OneManifold».GlueReal
 import «OneManifold».Main
+import «OneManifold».Noncompact
 import «OneManifold».OverlapLemmas
 import «OneManifold».RealCover
 import «OneManifold».RealLemmas

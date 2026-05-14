@@ -1,5 +1,6 @@
 import Mathlib.Tactic
 import Mathlib.Geometry.Manifold.Instances.Real
+import «OneManifold».GlueInfinite
 import «OneManifold».RealCover
 import «OneManifold».RealLemmas
 import «OneManifold».RealOrCircle
@@ -218,17 +219,12 @@ lemma open_exhaustion_of_iUnion_of_strictMono_of_precompact {X : Type*} [Topolog
   · simpa only [show j 0 = 0 by rfl]
   · exact fun n => ⟨j n, rfl⟩
 
-/- A connected 1-manifold is either homeomorphic to ℝ or a circle, or it
-  is the union of a strictly increasing sequence of open subsets U : ℕ → Set M
-  homeomorphic to ℝ, such that closure (U n) ⊆ U (n + 1) for all n. -/
-lemma real_or_circle_or_exhaustion_of_one_manifold [ConnectedSpace M] :
-  (Nonempty (M ≃ₜ ℝ) ∨ Nonempty (M ≃ₜ Circle)) ∨
-  ∃ U : ℕ → Set M, ((⋃ n, U n = univ) ∧ (∀ n, IsOpen (U n))
-    ∧ (∀ n, Nonempty (U n ≃ₜ ℝ)) ∧ (∀ n, IsCompact (closure (U n)))
-    ∧ (∀ n, closure (U n) ⊆ U (n + 1))) := by
+/- A connected 1-manifold is either homeomorphic to ℝ or a circle. -/
+theorem real_or_circle_of_one_manifold [ConnectedSpace M] :
+    (Nonempty (M ≃ₜ ℝ) ∨ Nonempty (M ≃ₜ Circle)) := by
   obtain ⟨C, hCOpen, hC, hCReal, hCPrecompact, hCMinimal⟩ := minimal_real_cover M
   by_cases hCInf : Infinite C
-  · right
+  · left
     obtain ⟨V, hVCover, hVOpen, hVReal, hVPrecompact, hVStrictMono⟩ :=
       exhaustion_of_one_manifold M hC hCInf hCOpen hCReal hCPrecompact hCMinimal
     obtain ⟨U, hUCover, hUOpen, hUPrecompact, hUStrictMono, _, hUSubcover⟩ :=
@@ -239,9 +235,8 @@ lemma real_or_circle_or_exhaustion_of_one_manifold [ConnectedSpace M] :
       obtain ⟨m, hm⟩ := hUSubcover n
       rw [hm]
       exact hVReal m
-    use U
-  · left
-    let U : {s // s ∈ C} → Set M := Subtype.val
+    exact homeomorph_real_of_union_real hUCover hUOpen hUReal hUPrecompact hUStrictMono
+  · let U : {s // s ∈ C} → Set M := Subtype.val
     haveI : Finite C := Finite.of_not_infinite hCInf
     haveI : Fintype (@univ {s // s ∈ C}) := fintypeUniv
     have hFiniteSubcover : ∃ t : Finset {s // s ∈ C}, univ ⊆ ⋃ i ∈ t, U i := by
