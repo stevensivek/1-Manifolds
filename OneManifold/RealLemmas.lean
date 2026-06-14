@@ -2,130 +2,129 @@ import Mathlib.Tactic -- import all the tactics
 
 open Set
 
-/- If x lies in an open set U ⊆ ℝ, then there are y, z ∈ U with y < x < z. -/
-lemma lt_gt_of_open_interval {U : Set ℝ} (hUOpen : IsOpen U) {x : ℝ} (hx : x ∈ U) :
-    (∃ y ∈ U, y < x) ∧ (∃ z ∈ U, x < z) := by
-  have hBasis := Real.isTopologicalBasis_Ioo_rat
-  obtain ⟨V, hV, ⟨hxV, hVA⟩⟩ := hBasis.exists_subset_of_mem_open hx hUOpen
-  simp only [mem_iUnion, mem_singleton_iff, exists_prop] at hV
-  obtain ⟨a, b, _, _⟩ := hV
-  subst V
-  constructor
-  · have hNE := nonempty_Ioo_subtype hxV.left
-    have hyax : ↑hNE.some ∈ Ioo ↑a x := Subtype.coe_prop hNE.some
-    use (hNE.some : ℝ)
-    exact ⟨hVA <| (Ioo_subset_Ioo_right <| le_of_lt hxV.right) hyax, hyax.right⟩
-  · have hNE := nonempty_Ioo_subtype hxV.right
-    have hyxb : ↑hNE.some ∈ Ioo x ↑b := Subtype.coe_prop hNE.some
-    use (hNE.some : ℝ)
-    exact ⟨hVA <| (Ioo_subset_Ioo_left <| le_of_lt hxV.left) hyxb, hyxb.left⟩
+/- If x lies in an open set s of a densely ordered space with no minimal
+   elements, then s contains an element y < x. -/
+lemma exists_mem_lt_of_mem_of_open {α : Type*} [LinearOrder α] [DenselyOrdered α]
+    [NoMinOrder α] [TopologicalSpace α] [OrderTopology α]
+    {s : Set α} (hsOpen : IsOpen s) {x : α} (hx : x ∈ s) :
+    ∃ y ∈ s, y < x := by
+  obtain ⟨t, htx, hIoc⟩ := exists_Ioc_subset_of_mem_nhds (hsOpen.mem_nhds hx) (exists_lt x)
+  obtain ⟨a, hta, hax⟩ := exists_between htx
+  exact ⟨a, mem_of_subset_of_mem hIoc <| mem_Ioc.mpr ⟨hta, le_of_lt hax⟩, hax⟩
 
-/- An open set in ℝ cannot be of the form [a, ∞). -/
-lemma not_Ici_of_open {U : Set ℝ} (hUOpen : IsOpen U) : ∀ a : ℝ, U ≠ Ici a := by
+/- If x lies in an open set s of a densely ordered space with no maximal
+   elements, then s contains an element z > x. -/
+lemma exists_mem_gt_of_mem_of_open {α : Type*} [LinearOrder α] [DenselyOrdered α]
+    [NoMaxOrder α] [TopologicalSpace α] [OrderTopology α]
+    {s : Set α} (hsOpen : IsOpen s) {x : α} (hx : x ∈ s) :
+    ∃ z ∈ s, x < z := by
+  obtain ⟨t, htx, hIco⟩ := exists_Ico_subset_of_mem_nhds (hsOpen.mem_nhds hx) (exists_gt x)
+  obtain ⟨a, hxa, hat⟩ := exists_between htx
+  exact ⟨a, mem_of_subset_of_mem hIco <| mem_Ico.mpr ⟨le_of_lt hxa, hat⟩, hxa⟩
+
+/- If x lies in an open set s of a densely ordered space with no maximal or
+   minimal elements, then there are y, z ∈ s with y < x < z. -/
+lemma lt_gt_of_open_interval {α : Type*} [LinearOrder α] [DenselyOrdered α]
+    [NoMinOrder α] [NoMaxOrder α] [TopologicalSpace α] [OrderTopology α]
+    {s : Set α} (hsOpen : IsOpen s) {x : α} (hx : x ∈ s) :
+    (∃ y ∈ s, y < x) ∧ (∃ z ∈ s, x < z) :=
+  ⟨exists_mem_lt_of_mem_of_open hsOpen hx, exists_mem_gt_of_mem_of_open hsOpen hx⟩
+
+/- An open set in a densely ordered space with no minimal elements cannot be
+   of the form [a, ∞). -/
+lemma not_Ici_of_open {α : Type*} [LinearOrder α] [DenselyOrdered α]
+    [NoMinOrder α] [TopologicalSpace α] [OrderTopology α]
+    {s : Set α} (hsOpen : IsOpen s) : ∀ a : α, s ≠ Ici a := by
   intro a _
-  subst U
-  obtain ⟨⟨y, hyIci, hya⟩, _⟩ := lt_gt_of_open_interval hUOpen self_mem_Ici
+  subst s
+  obtain ⟨_, hyIci, hya⟩ := exists_mem_lt_of_mem_of_open hsOpen self_mem_Ici
   exact (lt_self_iff_false a).mp <| lt_of_le_of_lt hyIci hya
 
-/- An open set in ℝ cannot be of the form (-∞, a]. -/
-lemma not_Iic_of_open {U : Set ℝ} (hUOpen : IsOpen U) : ∀ a : ℝ, U ≠ Iic a := by
+/- An open set in a densely ordered space with no maximal elements cannot be
+   of the form (-∞, a]. -/
+lemma not_Iic_of_open {α : Type*} [LinearOrder α] [DenselyOrdered α]
+    [NoMaxOrder α] [TopologicalSpace α] [OrderTopology α]
+    {s : Set α} (hsOpen : IsOpen s) : ∀ a : α, s ≠ Iic a := by
   intro a _
-  subst U
-  obtain ⟨_, ⟨z, hzIic, hza⟩⟩ := lt_gt_of_open_interval hUOpen self_mem_Iic
+  subst s
+  obtain ⟨_, hzIic, hza⟩ := exists_mem_gt_of_mem_of_open hsOpen self_mem_Iic
   exact (lt_self_iff_false a).mp <| lt_of_lt_of_le hza hzIic
 
-/- A nonempty open set in ℝ cannot be of the form (a, b]. -/
-lemma not_Ioc_of_open {U : Set ℝ} (hUOpen : IsOpen U) (hANonempty : U.Nonempty) :
-    ∀ a b : ℝ, U ≠ Ioc a b := by
+/- A nonempty open set in a densely ordered space with no maximal elements
+   cannot be of the form (a, b]. -/
+lemma not_Ioc_of_open {α : Type*} [LinearOrder α] [DenselyOrdered α]
+    [NoMaxOrder α] [TopologicalSpace α] [OrderTopology α]
+    {s : Set α} (hsOpen : IsOpen s) (hNE : s.Nonempty) : ∀ a b : α, s ≠ Ioc a b := by
   intro a b _
-  subst U
-  have hab : a < b := nonempty_Ioc.mp hANonempty
-  obtain ⟨_, ⟨z, hzIoc, hzb⟩⟩ := lt_gt_of_open_interval hUOpen <| right_mem_Ioc.mpr hab
-  exact (lt_self_iff_false z).mp <| lt_of_le_of_lt hzIoc.right hzb
+  subst s
+  obtain ⟨y, hyIoc, hyb⟩ := exists_mem_gt_of_mem_of_open hsOpen
+                            <| right_mem_Ioc.mpr (nonempty_Ioc.mp hNE)
+  exact (lt_self_iff_false y).mp <| lt_of_le_of_lt hyIoc.right hyb
 
-/- A nonempty open set in ℝ cannot be of the form [a, b). -/
-lemma not_Ico_of_open {U : Set ℝ} (hUOpen : IsOpen U) (hUNonempty : U.Nonempty) :
-    ∀ a b : ℝ, U ≠ Ico a b := by
+/- A nonempty open set in a densely ordered space with no minimal elements
+   cannot be of the form [a, b). -/
+lemma not_Ico_of_open {α : Type*} [LinearOrder α] [DenselyOrdered α]
+    [NoMinOrder α] [TopologicalSpace α] [OrderTopology α]
+    {s : Set α} (hsOpen : IsOpen s) (hNE : s.Nonempty) : ∀ a b : α, s ≠ Ico a b := by
   intro a b _
-  subst U
-  have hab : a < b := nonempty_Ico.mp hUNonempty
-  obtain ⟨⟨y, hyIco, hya⟩, _⟩ := lt_gt_of_open_interval hUOpen <| left_mem_Ico.mpr hab
+  subst s
+  obtain ⟨y, hyIco, hya⟩ := exists_mem_lt_of_mem_of_open hsOpen
+                            <| left_mem_Ico.mpr (nonempty_Ico.mp hNE)
   exact (lt_self_iff_false a).mp <| lt_of_le_of_lt hyIco.left hya
 
-/- A nonempty open set in ℝ cannot be of the form [a, b]. -/
-lemma not_Icc_of_open {U : Set ℝ} (hUOpen : IsOpen U) (hANonempty : U.Nonempty) :
-    ∀ a b : ℝ, U ≠ Icc a b := by
+/- A nonempty open set in a densely ordered space with no maximal elements
+   cannot be of the form [a, b]. -/
+lemma not_Icc_of_open {α : Type*} [LinearOrder α] [DenselyOrdered α]
+    [NoMaxOrder α] [TopologicalSpace α] [OrderTopology α]
+    {s : Set α} (hsOpen : IsOpen s) (hNE : s.Nonempty) : ∀ a b : α, s ≠ Icc a b := by
   intro a b _
-  subst U
-  have hab : a ≤ b := nonempty_Icc.mp hANonempty
-  obtain ⟨⟨y, hyIcc, hya⟩, _⟩ := lt_gt_of_open_interval hUOpen <| left_mem_Icc.mpr hab
-  exact (lt_self_iff_false y).mp <| lt_of_lt_of_le hya hyIcc.left
+  subst s
+  obtain ⟨y, hyIoc, hyb⟩ := exists_mem_gt_of_mem_of_open hsOpen
+                            <| right_mem_Icc.mpr (nonempty_Icc.mp hNE)
+  exact (lt_self_iff_false y).mp <| lt_of_le_of_lt hyIoc.right hyb
 
-/- An nonempty, open, connected set in ℝ must have one of the following forms:
-   (a, b), (-∞, a), (b, ∞), or ℝ. -/
-lemma open_real_classification {U : Set ℝ} (hUOpen : IsOpen U) (hUConn : IsConnected U) :
-    (∃ a b, U = Ioo a b) ∨ (∃ a, U = Iio a) ∨ (∃ b, U = Ioi b) ∨ (U = univ) := by
-  have hRC := hUConn.isPreconnected.mem_intervals
+/- An open, connected subset of a conditionally complete, densely ordered space
+   with no minimal or maximal elements must have one of the following forms:
+   (a, b), (-∞, a), (b, ∞), or univ. -/
+lemma open_interval_classification {α : Type*}
+    [ConditionallyCompleteLinearOrder α] [DenselyOrdered α]
+    [NoMinOrder α] [NoMaxOrder α] [TopologicalSpace α] [OrderTopology α]
+    {s : Set α} (hsOpen : IsOpen s) (hsConn : IsConnected s) :
+    (∃ a b, s = Ioo a b) ∨ (∃ a, s = Iio a) ∨ (∃ b, s = Ioi b) ∨ (s = univ) := by
+  have hRC := hsConn.isPreconnected.mem_intervals
   simp only [Set.mem_insert_iff, Set.mem_singleton_iff,
-             not_Icc_of_open hUOpen hUConn.nonempty (sInf U) (sSup U),
-             not_Ico_of_open hUOpen hUConn.nonempty (sInf U) (sSup U),
-             not_Ioc_of_open hUOpen hUConn.nonempty (sInf U) (sSup U),
-             not_Ici_of_open hUOpen (sInf U),
-             not_Iic_of_open hUOpen (sSup U),
-             nonempty_iff_ne_empty.mp hUConn.nonempty, false_or, or_false] at hRC
+             not_Icc_of_open hsOpen hsConn.nonempty (sInf s) (sSup s),
+             not_Ico_of_open hsOpen hsConn.nonempty (sInf s) (sSup s),
+             not_Ioc_of_open hsOpen hsConn.nonempty (sInf s) (sSup s),
+             not_Ici_of_open hsOpen (sInf s),
+             not_Iic_of_open hsOpen (sSup s),
+             nonempty_iff_ne_empty.mp hsConn.nonempty, false_or, or_false] at hRC
   rcases hRC with h | h | h | h <;> rw [h]
   · simp only [exists_apply_eq_apply2', true_or]
   · simp only [exists_apply_eq_apply', true_or, or_true]
   · simp only [exists_apply_eq_apply', true_or, or_true]
   · simp only [or_true]
 
-lemma compact_real_classification {U : Set ℝ} (hUCompact : IsCompact U) (hUConn : IsConnected U) :
+/- A nonempty, open, connected set in ℝ must have one of the following forms:
+   (a, b), (-∞, a), (b, ∞), or ℝ. -/
+lemma open_real_classification {U : Set ℝ} (hUOpen : IsOpen U) (hUConn : IsConnected U) :
+    (∃ a b, U = Ioo a b) ∨ (∃ a, U = Iio a) ∨ (∃ b, U = Ioi b) ∨ (U = univ) :=
+  open_interval_classification hUOpen hUConn
+
+lemma isIcc_of_compact_ordConnected {α : Type*} [ConditionallyCompleteLinearOrder α]
+    [TopologicalSpace α] [OrderTopology α] {s : Set α}
+    (hsCompact : IsCompact s) (hsConn : s.OrdConnected) (hsNE : s.Nonempty) :
+    ∃ a b : α, (a ≤ b ∧ s = Icc a b) := by
+  refine ⟨sInf s, sSup s, ?_, Subset.antisymm ?_ ?_⟩
+  · exact csInf_le hsCompact.bddBelow (hsCompact.sSup_mem hsNE)
+  · exact subset_Icc_csInf_csSup hsCompact.bddBelow hsCompact.bddAbove
+  · exact OrdConnected.out' (hsCompact.sInf_mem hsNE) (hsCompact.sSup_mem hsNE)
+
+lemma compact_real_classification {U : Set ℝ}
+    (hUCompact : IsCompact U) (hUConn : IsConnected U) :
     ∃ a b : ℝ, (a ≤ b ∧ U = Icc a b) := by
-  have hRC := hUConn.isPreconnected.mem_intervals
-  have hNE : U ≠ ∅ := Ne.symm <| nonempty_iff_empty_ne.mp hUConn.nonempty
-  have hInf {x : ℝ} : x ∈ U → sInf U ≤ x := by
-    obtain ⟨hLB, _⟩ := Real.isGLB_sInf hUConn.nonempty hUCompact.bddBelow
-    exact mem_lowerBounds.mp hLB x
-  have hSup {x : ℝ} : x ∈ U → x ≤ sSup U := by
-    obtain ⟨hUB, _⟩ := Real.isLUB_sSup hUConn.nonempty hUCompact.bddAbove
-    exact mem_upperBounds.mp hUB x
-  have hle : sInf U ≤ sSup U := Real.sInf_le_sSup U hUCompact.bddBelow hUCompact.bddAbove
-  refine ⟨sInf U, sSup U, hle, ?_⟩
-  rcases hRC with h | h | h | h | h | h | h | h | h | h <;> rw [h] at hUCompact
-  · exact h -- Icc
-  · -- Ico
-    apply False.elim <| hNE <| Eq.trans h ?_
-    exact Ico_eq_empty <| not_lt.mpr <| isCompact_Ico_iff.mp hUCompact
-  · -- Ioc
-    apply False.elim <| hNE <| Eq.trans h ?_
-    exact Ioc_eq_empty <| not_lt.mpr <| isCompact_Ioc_iff.mp hUCompact
-  · -- Ioo
-    apply False.elim <| hNE <| Eq.trans h ?_
-    exact Ioo_eq_empty <| not_lt.mpr <| isCompact_Ioo_iff.mp hUCompact
-  · -- Ici
-    apply False.elim <| (lt_self_iff_false <| sSup U).mp ?_
-    apply lt_of_lt_of_le (lt_add_one _) <| hSup ?_
-    nth_rewrite 1 [h]
-    exact mem_Ici.mpr <| le_of_lt <| lt_of_le_of_lt hle <| lt_add_one (sSup U)
-  ·  -- Ioi
-    apply False.elim <| (lt_self_iff_false <| sSup U).mp ?_
-    apply lt_of_lt_of_le (lt_add_one _) <| hSup ?_
-    nth_rewrite 1 [h]
-    exact mem_Ioi.mpr <| lt_of_le_of_lt hle <| lt_add_one (sSup U)
-  · -- Iic
-    apply False.elim <| (lt_self_iff_false <| sInf U).mp ?_
-    apply lt_of_le_of_lt (hInf ?_) (sub_one_lt _)
-    nth_rewrite 1 [h]
-    exact mem_Iic.mpr <| le_of_lt <| lt_of_lt_of_le (sub_one_lt _) <| hle
-  · -- Iio
-    apply False.elim <| (lt_self_iff_false <| sInf U).mp ?_
-    apply lt_of_le_of_lt (hInf ?_) (sub_one_lt _)
-    nth_rewrite 1 [h]
-    exact mem_Iio.mpr <| lt_of_lt_of_le (sub_one_lt _) hle
-  · -- univ
-    exact False.elim <| (not_compactSpace_iff.mpr instNoncompactSpaceReal)
-      (isCompact_univ_iff.mp hUCompact)
-  · exact False.elim <| hNE (mem_singleton_iff.mp h) -- ∅
+  apply isIcc_of_compact_ordConnected hUCompact ?_ hUConn.nonempty
+  exact isPreconnected_iff_ordConnected.mp hUConn.isPreconnected
 
 lemma Iic_ne_Icc {a b c : ℝ} : Iic a ≠ Icc b c := by
   let d : ℝ := min a b - 1
@@ -169,7 +168,7 @@ lemma closure_eq_Icc_iff {U : Set ℝ} (hOpen : IsOpen U) (hConnected : IsConnec
   · rw [hU] at hConnected ⊢
     exact closure_Ioo <| ne_of_lt <| nonempty_Ioo.mp hConnected.nonempty
 
-lemma compl_Icc {𝕜 : Type*} [LinearOrder 𝕜] {s t : 𝕜} : (Icc s t)ᶜ = (Iio s) ∪ (Ioi t) := by
+lemma compl_Icc {α : Type*} [LinearOrder α] {s t : α} : (Icc s t)ᶜ = (Iio s) ∪ (Ioi t) := by
   apply compl_inj_iff.mp
   rw [compl_compl, compl_union, compl_Iio, compl_Ioi]
   rfl
