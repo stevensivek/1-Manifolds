@@ -126,6 +126,46 @@ lemma compact_real_classification {U : Set ℝ}
   apply isIcc_of_compact_ordConnected hUCompact ?_ hUConn.nonempty
   exact isPreconnected_iff_ordConnected.mp hUConn.isPreconnected
 
+/- If s is a subset of a densely ordered set, and the connected component of
+   `x ∈ s` is `Ioi a`, then s does not contain a. -/
+lemma left_notMem_of_connectedComponentIn_Ioi {α : Type*}
+    [ConditionallyCompleteLinearOrder α] [DenselyOrdered α] [TopologicalSpace α]
+    [OrderTopology α] {s : Set α} {x : α} (hx : x ∈ s)
+    {a : α} (hCCI : connectedComponentIn s x = Ioi a) : a ∉ s := by
+  by_contra ha
+  have hIci : Ici a ⊆ s := by
+    rw [← Ioi_union_left]
+    apply union_subset ?_ (singleton_subset_iff.mpr ha)
+    rw [← hCCI]
+    exact connectedComponentIn_subset s x
+  have hIci_Ioi : Ici a ⊆ Ioi a := by
+    rw [← hCCI]
+    apply isPreconnected_Ici.subset_connectedComponentIn (mem_Ici_of_Ioi ?_) hIci
+    rw [← hCCI]
+    exact mem_connectedComponentIn hx
+  have ha_mem : a ∈ Ici a := self_mem_Ici
+  exact (notMem_Ici.mpr <| hIci_Ioi ha_mem) ha_mem
+
+/- If s is a subset of a densely ordered set, and the connected component of
+   `x ∈ s` is `Iio a`, then s does not contain a. -/
+lemma right_notMem_of_connectedComponentIn_Iio {α : Type*}
+    [ConditionallyCompleteLinearOrder α] [DenselyOrdered α] [TopologicalSpace α]
+    [OrderTopology α] {s : Set α} {x : α} (hx : x ∈ s)
+    {a : α} (hCCI : connectedComponentIn s x = Iio a) : a ∉ s := by
+  by_contra ha
+  have hIic : Iic a ⊆ s := by
+    rw [← Iio_union_right]
+    apply union_subset ?_ (singleton_subset_iff.mpr ha)
+    rw [← hCCI]
+    exact connectedComponentIn_subset s x
+  have hIic_Iio : Iic a ⊆ Iio a := by
+    rw [← hCCI]
+    apply isPreconnected_Iic.subset_connectedComponentIn (mem_Iic_of_Iio ?_) hIic
+    rw [← hCCI]
+    exact mem_connectedComponentIn hx
+  have ha_mem : a ∈ Iic a := self_mem_Iic
+  exact (notMem_Iic.mpr <| hIic_Iio ha_mem) ha_mem
+
 lemma Iic_ne_Icc {a b c : ℝ} : Iic a ≠ Icc b c := by
   let d : ℝ := min a b - 1
   have : d ∈ Iic a := by

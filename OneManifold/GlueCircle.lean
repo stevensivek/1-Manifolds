@@ -371,20 +371,15 @@ private lemma glue_real_disconnected_intersection_intervals
   obtain ⟨hNotUV, hNotVU⟩ := not_nested_disconnected_intersection
     hNotConn hφSource hφTarget hVConn
 
-  have hU : IsOpen U := by
-    rw [← hφSource]
-    exact φ.open_source
-
-  have hUConn : IsConnected U := by
-    rw [← hφSource]
-    exact partial_homeomorph_IsConnected_source hφTarget
-
+  have hU : IsOpen U := hφSource ▸ φ.open_source
+  have hUConn : IsConnected U := hφSource ▸ partial_homeomorph_IsConnected_source hφTarget
   have hNotConn_φ : ¬ IsConnected (φ '' (U ∩ V)) := by
     by_contra h
-    exact hNotConn <| (partial_homeomorph_image_connected_iff φ hφSource V).mpr h
+    have : U ∩ V ⊆ φ.source := hφSource ▸ inter_subset_left
+    exact hNotConn <| (partial_homeomorph_image_connected_iff φ this).mpr h
 
-  have hNonempty : Nonempty (U ∩ V : Set X) := by
-    exact nonempty_inter_connected_open_cover hU hV hUniv hNotUV hNotVU
+  have hNonempty : Nonempty (U ∩ V : Set X) :=
+    nonempty_inter_connected_open_cover hU hV hUniv hNotUV hNotVU
 
   let x : X := hNonempty.some
   have hx : x ∈ U ∩ V := Subtype.coe_prop hNonempty.some
