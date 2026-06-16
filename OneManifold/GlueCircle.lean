@@ -29,6 +29,240 @@ to be Hausdorff.
 open Set Function ComplexConjugate
 set_option linter.style.emptyLine false
 
+lemma mem_union_and_not_mem_left {X : Type*} [TopologicalSpace X] {A B : Set X}
+    (hUnion : A ∪ B = univ) {t : X} (ht : t ∉ A) : t ∈ B := by
+  have : t ∈ A ∪ B := hUnion ▸ trivial
+  simpa only [mem_union, ht, false_or] using this
+
+noncomputable def glued_interval_map {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ) : X → ℂ :=
+  fun t => if h : t ∈ A
+              then (circleMap 0 1) (Real.pi * (φ ⟨t, h⟩))
+              else (circleMap 0 1) (-Real.pi * (ψ ⟨t, mem_union_and_not_mem_left hUnion h⟩))
+
+lemma glued_interval_map_eval_left {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ)
+    {t : X} (hA : t ∈ A) :
+    (glued_interval_map φ ψ hUnion) t = (circleMap 0 1) (Real.pi * (φ ⟨t, hA⟩)) := by
+  simp only [glued_interval_map, hA, ↓reduceDIte]
+
+lemma glued_interval_map_eval_right {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ)
+    {x y : X} (hInter : A ∩ B = {x, y}) {t : X} (hB : t ∈ B)
+    (hφx : ∀ h, φ ⟨x, h⟩ = (0 : ℝ)) (hψx : ∀ h, ψ ⟨x, h⟩ = (0 : ℝ))
+    (hφy : ∀ h, φ ⟨y, h⟩ = (1 : ℝ)) (hψy : ∀ h, ψ ⟨y, h⟩ = (1 : ℝ)) :
+    (glued_interval_map φ ψ hUnion) t = (circleMap 0 1) (-Real.pi * (ψ ⟨t, hB⟩)) := by
+  by_cases hA : t ∈ A <;> simp only [glued_interval_map, hA, ↓reduceDIte]
+  · rcases (show t ∈ {x, y} by exact hInter ▸ mem_inter hA hB) with htx | hty <;> subst t
+    · rw [hφx hA, hψx hB, mul_zero, mul_zero]
+    · rw [hφy hA, hψy hB, mul_one, mul_one, ← periodic_circleMap 0 1 (- Real.pi)]
+      apply congrArg (circleMap 0 1)
+      have : (2 : ℝ) - 1 = 1 := by norm_num
+      rw [← neg_one_mul Real.pi, ← add_mul, neg_add_eq_sub 1 2, this, one_mul]
+
+lemma glued_interval_map_continuousOn_left {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ) :
+    ContinuousOn (glued_interval_map φ ψ hUnion) A := by
+  apply continuousOn_iff_continuous_restrict.mpr
+  have : A.restrict (glued_interval_map φ ψ hUnion) =
+         fun a => (circleMap 0 1 (Real.pi * φ a)) := by
+    ext x
+    simp only [restrict_apply]
+    exact glued_interval_map_eval_left φ ψ hUnion (Subtype.coe_prop x)
+  rw [this]
+  fun_prop
+
+lemma glued_interval_map_continuousOn_right {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ)
+    {x y : X} (hInter : A ∩ B = {x, y})
+    (hφx : ∀ h, φ ⟨x, h⟩ = (0 : ℝ)) (hψx : ∀ h, ψ ⟨x, h⟩ = (0 : ℝ))
+    (hφy : ∀ h, φ ⟨y, h⟩ = (1 : ℝ)) (hψy : ∀ h, ψ ⟨y, h⟩ = (1 : ℝ)) :
+    ContinuousOn (glued_interval_map φ ψ hUnion) B := by
+  apply continuousOn_iff_continuous_restrict.mpr
+  have : B.restrict (glued_interval_map φ ψ hUnion) =
+         fun b => (circleMap 0 1 (-Real.pi * ψ b)) := by
+    ext x
+    simp only [restrict_apply]
+    exact glued_interval_map_eval_right φ ψ hUnion hInter (Subtype.coe_prop x) hφx hψx hφy hψy
+  rw [this]
+  fun_prop
+
+lemma glued_interval_map_continuous {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ)
+    {x y : X} (hInter : A ∩ B = {x, y})
+    (hφx : ∀ h, φ ⟨x, h⟩ = (0 : ℝ)) (hψx : ∀ h, ψ ⟨x, h⟩ = (0 : ℝ))
+    (hφy : ∀ h, φ ⟨y, h⟩ = (1 : ℝ)) (hψy : ∀ h, ψ ⟨y, h⟩ = (1 : ℝ))
+    (hAClosed : IsClosed A) (hBClosed : IsClosed B) :
+    Continuous (glued_interval_map φ ψ hUnion) := by
+  apply continuousOn_univ.mp
+  exact hUnion ▸ (continuousOn_union_iff_of_isClosed hAClosed hBClosed).mpr
+    ⟨glued_interval_map_continuousOn_left φ ψ hUnion,
+     glued_interval_map_continuousOn_right φ ψ hUnion hInter hφx hψx hφy hψy⟩
+
+lemma glued_interval_map_continuous' {X : Type*} [TopologicalSpace X] [T2Space X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ)
+    {x y : X} (hInter : A ∩ B = {x, y})
+    (hφx : ∀ h, φ ⟨x, h⟩ = (0 : ℝ)) (hψx : ∀ h, ψ ⟨x, h⟩ = (0 : ℝ))
+    (hφy : ∀ h, φ ⟨y, h⟩ = (1 : ℝ)) (hψy : ∀ h, ψ ⟨y, h⟩ = (1 : ℝ)) :
+    Continuous (glued_interval_map φ ψ hUnion) := by
+  have hA : IsCompact A := isCompact_iff_compactSpace.mpr φ.symm.compactSpace
+  have hB : IsCompact B := isCompact_iff_compactSpace.mpr ψ.symm.compactSpace
+  exact glued_interval_map_continuous φ ψ hUnion hInter hφx hψx hφy hψy
+    hA.isClosed hB.isClosed
+
+private lemma bound_pi_times_unitInterval {Y : Type*} [TopologicalSpace Y]
+    (φ : Y ≃ₜ unitInterval) (y : Y) : 0 ≤ Real.pi * (φ y) ∧ Real.pi * (φ y) ≤ Real.pi := by
+  constructor
+  · exact mul_nonneg Real.pi_nonneg unitInterval.nonneg'
+  · nth_rewrite 2 [← mul_one Real.pi]
+    exact (mul_le_mul_iff_of_pos_left Real.pi_pos).mpr unitInterval.le_one'
+
+private lemma bound_sub_pi_times_unitInterval {Y : Type*} [TopologicalSpace Y]
+    (φ : Y ≃ₜ unitInterval) (y z : Y) :
+    |(Real.pi * φ y) - (Real.pi * φ z)| < 2 * Real.pi := by
+  obtain ⟨zero_le_y, y_le_pi⟩ := bound_pi_times_unitInterval φ y
+  obtain ⟨zero_le_z, z_le_pi⟩ := bound_pi_times_unitInterval φ z
+  calc
+  |(Real.pi * φ y) - (Real.pi * φ z)| ≤ Real.pi
+                  := abs_sub_le_of_nonneg_of_le zero_le_y y_le_pi zero_le_z z_le_pi
+  _ < 2 * Real.pi := lt_two_mul_self Real.pi_pos
+
+private lemma inter_two_points_mem_each {X : Type*} [TopologicalSpace X]
+    {A B : Set X} {x y : X} (hInter : A ∩ B = {x, y}) :
+    x ∈ A ∧ x ∈ B ∧ y ∈ A ∧ y ∈ B := by
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · apply mem_of_subset_of_mem <| inter_subset_left (t := B)
+    exact hInter ▸ mem_insert x {y}
+  · apply mem_of_subset_of_mem <| inter_subset_right (s := A)
+    exact hInter ▸ mem_insert x {y}
+  · apply mem_of_subset_of_mem <| inter_subset_left (t := B)
+    exact hInter ▸ mem_insert_of_mem x rfl
+  · apply mem_of_subset_of_mem <| inter_subset_right (s := A)
+    exact hInter ▸ mem_insert_of_mem x rfl
+
+lemma glued_interval_map_im_nonneg {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ)
+    {x y : X} (hInter : A ∩ B = {x, y})
+    (hφx : ∀ h, φ ⟨x, h⟩ = (0 : ℝ)) (hψx : ∀ h, ψ ⟨x, h⟩ = (0 : ℝ))
+    (hφy : ∀ h, φ ⟨y, h⟩ = (1 : ℝ)) (hψy : ∀ h, ψ ⟨y, h⟩ = (1 : ℝ))
+    {t : X} : (glued_interval_map φ ψ hUnion t).im ≥ 0 ↔ t ∈ A := by
+  obtain ⟨hxA, hxB, hyA, hyB⟩ := inter_two_points_mem_each hInter
+  constructor <;> intro h
+  · by_contra hA
+    have hB : t ∈ B := mem_union_and_not_mem_left hUnion hA
+    rw [glued_interval_map_eval_right φ ψ hUnion hInter hB hφx hψx hφy hψy, circleMap_zero] at h
+    simp only [Complex.mul_im, Complex.ofReal_re, Complex.ofReal_im,
+      one_mul, zero_mul, add_zero, Complex.exp_ofReal_mul_I_im, neg_mul, Real.sin_neg] at h
+    apply neg_nonneg.mp at h
+    obtain ⟨hnonneg, hle_pi⟩ := bound_pi_times_unitInterval ψ ⟨t, hB⟩
+    have hsin_zero : Real.sin (Real.pi * ψ ⟨t, hB⟩) = 0 :=
+      eq_of_le_of_ge h <| Real.sin_nonneg_of_nonneg_of_le_pi hnonneg hle_pi
+    by_cases hψ : Real.pi * ψ ⟨t, hB⟩ < Real.pi
+    · have : -Real.pi < Real.pi * ψ ⟨t, hB⟩ :=
+        lt_of_lt_of_le (neg_neg_iff_pos.mpr Real.pi_pos) hnonneg
+      have := (Real.sin_eq_zero_iff_of_lt_of_lt this hψ).mp hsin_zero
+      apply (mul_eq_zero_iff_left Real.pi_ne_zero).mp at this
+      rw [← hψx hxB] at this
+      have : t = x := Subtype.mk_eq_mk.mp <| ψ.injective <| SetCoe.ext this
+      exact hA (this ▸ hxA)
+    · have : Real.pi * ψ ⟨t, hB⟩ = Real.pi := eq_of_le_of_ge hle_pi <| not_lt.mp hψ
+      apply (mul_eq_left₀ Real.pi_ne_zero).mp at this
+      rw [← hψy hyB] at this
+      have : t = y := Subtype.mk_eq_mk.mp <| ψ.injective <| SetCoe.ext this
+      exact hA (this ▸ hyA)
+  · rw [glued_interval_map_eval_left φ ψ hUnion h, circleMap_zero]
+    simp only [Complex.mul_im, Complex.ofReal_re, one_mul, Complex.ofReal_im, zero_mul, add_zero]
+    rw [Complex.exp_ofReal_mul_I_im]
+    obtain ⟨hnonneg, hle_pi⟩ := bound_pi_times_unitInterval φ ⟨t, h⟩
+    exact Real.sin_nonneg_of_nonneg_of_le_pi hnonneg hle_pi
+
+lemma glued_interval_map_injOn_left {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ) :
+    InjOn (glued_interval_map φ ψ hUnion) A := by
+  intro s hs t ht heq
+  rw [glued_interval_map_eval_left φ ψ hUnion hs,
+      glued_interval_map_eval_left φ ψ hUnion ht] at heq
+  have := bound_sub_pi_times_unitInterval φ ⟨s, hs⟩ ⟨t, ht⟩
+  have := eq_of_circleMap_eq one_ne_zero this heq
+  apply (mul_right_inj' Real.pi_ne_zero).mp at this
+  exact Subtype.mk_eq_mk.mp <| φ.injective <| SetCoe.ext this
+
+lemma glued_interval_map_injOn_right {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ)
+    {x y : X} (hInter : A ∩ B = {x, y})
+    (hφx : ∀ h, φ ⟨x, h⟩ = (0 : ℝ)) (hψx : ∀ h, ψ ⟨x, h⟩ = (0 : ℝ))
+    (hφy : ∀ h, φ ⟨y, h⟩ = (1 : ℝ)) (hψy : ∀ h, ψ ⟨y, h⟩ = (1 : ℝ)) :
+    InjOn (glued_interval_map φ ψ hUnion) B := by
+  intro s hs t ht heq
+  rw [glued_interval_map_eval_right φ ψ hUnion hInter hs hφx hψx hφy hψy,
+      glued_interval_map_eval_right φ ψ hUnion hInter ht hφx hψx hφy hψy] at heq
+  have : |(Real.pi * ψ ⟨t, ht⟩) - (Real.pi * ψ ⟨s, hs⟩)| < 2 * Real.pi :=
+    bound_sub_pi_times_unitInterval ψ ⟨t, ht⟩ ⟨s, hs⟩
+  rw [← neg_sub_neg, neg_mul_eq_neg_mul, neg_mul_eq_neg_mul] at this
+  have := eq_of_circleMap_eq one_ne_zero this heq
+  apply (mul_right_inj' <| neg_ne_zero.mpr Real.pi_ne_zero).mp at this
+  exact Subtype.mk_eq_mk.mp <| ψ.injective <| SetCoe.ext this
+
+lemma glued_interval_map_injective {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ)
+    {x y : X} (hInter : A ∩ B = {x, y})
+    (hφx : ∀ h, φ ⟨x, h⟩ = (0 : ℝ)) (hψx : ∀ h, ψ ⟨x, h⟩ = (0 : ℝ))
+    (hφy : ∀ h, φ ⟨y, h⟩ = (1 : ℝ)) (hψy : ∀ h, ψ ⟨y, h⟩ = (1 : ℝ)) :
+    Injective (glued_interval_map φ ψ hUnion) := by
+  intro s t heq
+  by_cases hs : s ∈ A <;> by_cases ht : t ∈ A
+  · exact glued_interval_map_injOn_left φ ψ hUnion hs ht heq
+  · have h₁ := (glued_interval_map_im_nonneg φ ψ hUnion hInter hφx hψx hφy hψy).mpr hs
+    have h₂ := (not_iff_not.mpr
+                (glued_interval_map_im_nonneg φ ψ hUnion hInter hφx hψx hφy hψy)).mpr ht
+    exact False.elim <| h₂ (heq ▸ h₁)
+  · have h₁ := (glued_interval_map_im_nonneg φ ψ hUnion hInter hφx hψx hφy hψy).mpr ht
+    have h₂ := (not_iff_not.mpr
+                (glued_interval_map_im_nonneg φ ψ hUnion hInter hφx hψx hφy hψy)).mpr hs
+    exact False.elim <| h₂ (heq ▸ h₁)
+  · exact glued_interval_map_injOn_right φ ψ hUnion hInter hφx hψx hφy hψy
+      (mem_union_and_not_mem_left hUnion hs) (mem_union_and_not_mem_left hUnion ht) heq
+
+-- private lemma glue_unit_intervals_circle₀' {X : Type*} [TopologicalSpace X] [T2Space X]
+--     (A B : Set X) (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval)
+--     {x y : X} (hAx : x ∈ A) (hBx : x ∈ B) (hAy : y ∈ A) (hBy : y ∈ B)
+--     (hInter : A ∩ B = {x, y}) (hUnion : A ∪ B = univ)
+--     (hφx : φ ⟨x, hAx⟩ = (0 : ℝ)) (hψx : ψ ⟨x, hBx⟩ = (0 : ℝ))
+--     (hφy : φ ⟨y, hAy⟩ = (1 : ℝ)) (hψy : ψ ⟨y, hBy⟩ = (1 : ℝ)) :
+--     Nonempty (X ≃ₜ Circle) := by
+--   classical -- need to know that A, B are decidable
+--   let m : ℝ → ℝ := fun t ↦ Real.pi * t
+--   let f₀ : unitInterval → ℂ := fun t ↦ Complex.exp ((m t) * Complex.I)
+--   have hfCircle : ∀ t : unitInterval, f₀ t ∈ Submonoid.unitSphere ℂ := by
+--     intro t
+--     rw [show (f₀ t ∈ Submonoid.unitSphere ℂ) = (dist (f₀ t) (0 : ℂ) = 1) by rfl,
+--         dist_zero_right, Complex.norm_exp_ofReal_mul_I (m t)]
+--   have : (0 : ℝ) ≤ 1 := by exact zero_le_one
+--   let f : unitInterval → Circle :=
+--     fun t ↦ ⟨circleMap 0 1 (Real.pi * t), circleMap_mem_sphere 0 zero_le_one (Real.pi * t)⟩
+--   let g : unitInterval → Circle :=
+--     fun t ↦ ⟨circleMap 0 1 (- Real.pi * t), circleMap_mem_sphere 0 zero_le_one (- Real.pi * t)⟩
+
+--   haveI : f 0 = g 0 := by simp only [f, g, Icc.coe_zero, mul_zero]
+--   haveI : f 1 = g 1 := by
+--     simp only [f, g, Icc.coe_one, mul_one, Circle.ext_iff]
+--     rw [← periodic_circleMap 0 1 (- Real.pi)]
+--     apply congrArg (circleMap 0 1)
+--     have : (2 : ℝ) - 1 = 1 := by norm_num
+--     rw [← neg_one_mul Real.pi, ← add_mul, neg_add_eq_sub 1 2, this, one_mul]
+--   sorry
+
 private lemma glue_unit_intervals_circle₀ {X : Type*} [TopologicalSpace X] [T2Space X]
     (A B : Set X) (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval)
     {x y : X} (hAx : x ∈ A) (hBx : x ∈ B) (hAy : y ∈ A) (hBy : y ∈ B)
@@ -80,19 +314,11 @@ private lemma glue_unit_intervals_circle₀ {X : Type*} [TopologicalSpace X] [T2
       have : t = x ∨ t = y := by
         simpa only [↓reduceDIte, implies_true, mem_insert_iff, mem_singleton_iff] using this
       rcases this with htx | hty
-      · have hφt : φ ⟨t, h⟩ = 0 := by
-          rw [← hφx]
-          exact congrArg φ <| SetCoe.ext htx
-        have hψt : ψ ⟨t, ht⟩ = 0 := by
-          rw [← hψx]
-          exact congrArg ψ <| SetCoe.ext htx
+      · have hφt : φ ⟨t, h⟩ = 0 := hφx ▸ (congrArg φ <| SetCoe.ext htx)
+        have hψt : ψ ⟨t, ht⟩ = 0 := hψx ▸ (congrArg ψ <| SetCoe.ext htx)
         rwa [hφt, hψt]
-      · have hφt : φ ⟨t, h⟩ = 1 := by
-          rw [← hφy]
-          exact congrArg φ <| SetCoe.ext hty
-        have hψt : ψ ⟨t, ht⟩ = 1 := by
-          rw [← hψy]
-          exact congrArg ψ <| SetCoe.ext hty
+      · have hφt : φ ⟨t, h⟩ = 1 := hφy ▸ (congrArg φ <| SetCoe.ext hty)
+        have hψt : ψ ⟨t, ht⟩ = 1 := hψy ▸ (congrArg ψ <| SetCoe.ext hty)
         rwa [hφt, hψt]
     · simp_all only [Icc.coe_eq_zero, Icc.coe_eq_one, ↓reduceDIte, implies_true]
 
