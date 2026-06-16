@@ -234,34 +234,95 @@ lemma glued_interval_map_injective {X : Type*} [TopologicalSpace X]
   · exact glued_interval_map_injOn_right φ ψ hUnion hInter hφx hψx hφy hψy
       (mem_union_and_not_mem_left hUnion hs) (mem_union_and_not_mem_left hUnion ht) heq
 
--- private lemma glue_unit_intervals_circle₀' {X : Type*} [TopologicalSpace X] [T2Space X]
---     (A B : Set X) (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval)
---     {x y : X} (hAx : x ∈ A) (hBx : x ∈ B) (hAy : y ∈ A) (hBy : y ∈ B)
---     (hInter : A ∩ B = {x, y}) (hUnion : A ∪ B = univ)
---     (hφx : φ ⟨x, hAx⟩ = (0 : ℝ)) (hψx : ψ ⟨x, hBx⟩ = (0 : ℝ))
---     (hφy : φ ⟨y, hAy⟩ = (1 : ℝ)) (hψy : ψ ⟨y, hBy⟩ = (1 : ℝ)) :
---     Nonempty (X ≃ₜ Circle) := by
---   classical -- need to know that A, B are decidable
---   let m : ℝ → ℝ := fun t ↦ Real.pi * t
---   let f₀ : unitInterval → ℂ := fun t ↦ Complex.exp ((m t) * Complex.I)
---   have hfCircle : ∀ t : unitInterval, f₀ t ∈ Submonoid.unitSphere ℂ := by
---     intro t
---     rw [show (f₀ t ∈ Submonoid.unitSphere ℂ) = (dist (f₀ t) (0 : ℂ) = 1) by rfl,
---         dist_zero_right, Complex.norm_exp_ofReal_mul_I (m t)]
---   have : (0 : ℝ) ≤ 1 := by exact zero_le_one
---   let f : unitInterval → Circle :=
---     fun t ↦ ⟨circleMap 0 1 (Real.pi * t), circleMap_mem_sphere 0 zero_le_one (Real.pi * t)⟩
---   let g : unitInterval → Circle :=
---     fun t ↦ ⟨circleMap 0 1 (- Real.pi * t), circleMap_mem_sphere 0 zero_le_one (- Real.pi * t)⟩
+lemma glued_interval_map_range {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
+    (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ)
+    {x y : X} (hInter : A ∩ B = {x, y})
+    (hφx : ∀ h, φ ⟨x, h⟩ = (0 : ℝ)) (hψx : ∀ h, ψ ⟨x, h⟩ = (0 : ℝ))
+    (hφy : ∀ h, φ ⟨y, h⟩ = (1 : ℝ)) (hψy : ∀ h, ψ ⟨y, h⟩ = (1 : ℝ)) :
+    range (glued_interval_map φ ψ hUnion) = Metric.sphere (0 : ℂ) 1 := by
+  apply Subset.antisymm <;> intro t ht
+  · obtain ⟨s, hs⟩ := ht
+    subst t
+    by_cases h : s ∈ A
+    · rw [glued_interval_map_eval_left φ ψ hUnion h, Metric.mem_sphere]
+      simp only [dist_zero_right, norm_circleMap_zero, abs_one]
+    · have h' : s ∈ B := mem_union_and_not_mem_left hUnion h
+      rw [glued_interval_map_eval_right φ ψ hUnion hInter h' hφx hψx hφy hψy,
+        Metric.mem_sphere]
+      simp only [dist_zero_right, norm_circleMap_zero, abs_one]
+  · apply mem_range.mpr
+    have hnorm : ‖t - 0‖ = 1 := mem_sphere_iff_norm.mp ht
+    simp only [sub_zero] at hnorm
+    let θ := Complex.arg (t - 0)
+    obtain ⟨h_neg_pi, h_pos_pi⟩ := Complex.arg_mem_Ioc (t - 0)
+    by_cases hθ : 0 ≤ θ
+    · let s : ℝ := θ / Real.pi
+      have hπsθ : Real.pi * s = θ := mul_div_cancel₀ θ Real.pi_ne_zero
+      have hs0 : 0 ≤ s := by
+        apply div_nonneg_iff.mpr
+        simp only [hθ, Real.pi_nonneg, true_and, true_or]
+      have hs1 : s ≤ 1 := (div_le_one₀ Real.pi_pos).mpr h_pos_pi
+      use φ.symm ⟨s, mem_Icc.mpr ⟨hs0, hs1⟩⟩
+      rw [glued_interval_map_eval_left φ ψ hUnion (by apply Subtype.coe_prop),
+          ← Complex.norm_mul_exp_arg_mul_I t, hnorm]
+      simp only [Subtype.coe_eta, φ.apply_symm_apply, circleMap_zero, hπsθ, θ, sub_zero]
+    · replace hθ : θ < 0 := not_le.mp hθ
+      let s : ℝ := -θ / Real.pi
+      have hπsθ : -Real.pi * s = θ := by
+        simp only [neg_mul]
+        exact neg_eq_iff_eq_neg.mpr <| mul_div_cancel₀ (-θ) Real.pi_ne_zero
+      have hs0 : 0 ≤ s := by
+        apply div_nonneg_iff.mpr
+        simp only [neg_nonneg.mpr <| le_of_lt hθ, Real.pi_nonneg, true_and, true_or]
+      have hs1 : s ≤ 1 := by
+        apply (div_le_one₀ Real.pi_pos).mpr
+        exact le_of_lt <| neg_lt_of_neg_lt h_neg_pi
+      use ψ.symm ⟨s, mem_Icc.mpr ⟨hs0, hs1⟩⟩
+      rw [glued_interval_map_eval_right φ ψ hUnion hInter
+            (by apply Subtype.coe_prop) hφx hψx hφy hψy]
+      rw [← Complex.norm_mul_exp_arg_mul_I t, hnorm]
+      simp only [Subtype.coe_eta, ψ.apply_symm_apply, circleMap_zero, hπsθ, θ, sub_zero]
 
---   haveI : f 0 = g 0 := by simp only [f, g, Icc.coe_zero, mul_zero]
---   haveI : f 1 = g 1 := by
---     simp only [f, g, Icc.coe_one, mul_one, Circle.ext_iff]
---     rw [← periodic_circleMap 0 1 (- Real.pi)]
---     apply congrArg (circleMap 0 1)
---     have : (2 : ℝ) - 1 = 1 := by norm_num
---     rw [← neg_one_mul Real.pi, ← add_mul, neg_add_eq_sub 1 2, this, one_mul]
---   sorry
+lemma glue_intervals_compact {X : Type*} [TopologicalSpace X] [T2Space X]
+    {A B : Set X} (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval) (hUnion : A ∪ B = univ) :
+    CompactSpace X := by
+  apply isCompact_univ_iff.mp
+  apply hUnion ▸ IsCompact.union ?_ ?_ <;>
+    apply isCompact_iff_isCompact_univ.mpr <| isCompact_univ_iff.mpr ?_
+  · exact φ.symm.compactSpace
+  · exact ψ.symm.compactSpace
+
+private lemma glue_unit_intervals_circle₀' {X : Type*} [TopologicalSpace X] [T2Space X]
+    (A B : Set X) (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval)
+    (hUnion : A ∪ B = univ) {x y : X} (hInter : A ∩ B = {x, y})
+    (hφx : ∀ h : x ∈ A, φ ⟨x, h⟩ = (0 : ℝ)) (hψx : ∀ h : x ∈ B, ψ ⟨x, h⟩ = (0 : ℝ))
+    (hφy : ∀ h : y ∈ A, φ ⟨y, h⟩ = (1 : ℝ)) (hψy : ∀ h : y ∈ B, ψ ⟨y, h⟩ = (1 : ℝ)) :
+    Nonempty (X ≃ₜ Circle) := by
+  classical -- need to know that membership in A is decidable
+  haveI : CompactSpace X := glue_intervals_compact φ ψ hUnion
+  -- Define f : X → ℂ, which is a homeomorphism of X onto its image
+  let f : X → ℂ := glued_interval_map φ ψ hUnion
+  have hfCont : Continuous f :=
+    glued_interval_map_continuous' φ ψ hUnion hInter hφx hψx hφy hψy
+  have hfInj : Injective f :=
+    glued_interval_map_injective φ ψ hUnion hInter hφx hψx hφy hψy
+  -- Now restrict the codomain to range f
+  let g : X → range f := fun t ↦ ⟨f t, mem_range_self t⟩
+  have hgCont : Continuous g := hfCont.subtype_mk mem_range_self
+  have hgInj : Injective g := fun _ _ hst ↦ hfInj <| Subtype.mk_eq_mk.mp hst
+  have hgSurj : Surjective g := by
+    intro s
+    obtain ⟨t, ht⟩ := mem_range.mpr (Subtype.coe_prop s)
+    exact ⟨t, SetCoe.ext ht⟩
+  have hgHomeomorph : IsHomeomorph g :=
+    isHomeomorph_iff_continuous_bijective.mpr ⟨hgCont, ⟨hgInj, hgSurj⟩⟩
+  let ι : range f ≃ₜ Circle := by
+    rw [glued_interval_map_range φ ψ hUnion hInter hφx hψx hφy hψy]
+    exact Homeomorph.refl Circle
+  exact Nonempty.intro <| hgHomeomorph.homeomorph.trans ι
+
+/- Older version of the code begins below -/
 
 private lemma glue_unit_intervals_circle₀ {X : Type*} [TopologicalSpace X] [T2Space X]
     (A B : Set X) (φ : A ≃ₜ unitInterval) (ψ : B ≃ₜ unitInterval)
