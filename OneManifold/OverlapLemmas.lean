@@ -62,7 +62,7 @@ lemma intersection_intervals {U V : Set X}
     by_cases hxI : x ∉ I
     · rw [connectedComponentIn_eq_empty hxI] at hx
       exact (Ioo_eq_empty_iff.mp (Eq.symm hx)) hab
-    replace hxI : x ∈ I := by exact not_notMem.mp hxI
+    replace hxI : x ∈ I := not_notMem.mp hxI
 
     let S := φ.source ∩ φ ⁻¹' (Ioo a b)
     have hSOpen : IsOpen S := φ.isOpen_inter_preimage isOpen_Ioo
@@ -104,13 +104,11 @@ lemma intersection_intervals {U V : Set X}
           rw [← Ioo_union_right hab, ← hx]
           apply union_subset_iff.mpr
           exact ⟨connectedComponentIn_subset I x, singleton_subset_iff.mpr hb⟩
-        have : IsPreconnected (Ioc a b) := by exact isPreconnected_Ioc
         have : x ∈ Ioc a b := by
           apply mem_Ioc_of_Ioo
-          rw [← hx]
-          exact mem_connectedComponentIn hxI
-        have hIcoIoo : Ioc a b ⊆ connectedComponentIn I x := by
-          exact isPreconnected_Ioc.subset_connectedComponentIn this hIocSubset
+          exact hx ▸ mem_connectedComponentIn hxI
+        have hIcoIoo : Ioc a b ⊆ connectedComponentIn I x :=
+          isPreconnected_Ioc.subset_connectedComponentIn this hIocSubset
         rw [hx] at hIcoIoo
         exact (notMem_Ioo_of_ge <| le_refl b) (hIcoIoo <| right_mem_Ioc.mpr hab)
 
@@ -244,7 +242,7 @@ lemma choose_intersection_component_left {U V : Set X}
     (hNotUV : ¬U ⊆ V) (hNotVU : ¬V ⊆ U) {y : X} (hy : y ∈ U ∩ V) :
     ∃ φ' : OpenPartialHomeomorph X ℝ, φ'.source = U ∧ φ'.target = univ ∧
       (∃ a : ℝ, connectedComponentIn (φ' '' (U ∩ V)) (φ' y) = Iio a) := by
-  have hφy : φ y ∈ φ '' (U ∩ V) := by exact mem_image_of_mem φ hy
+  have hφy : φ y ∈ φ '' (U ∩ V) := mem_image_of_mem φ hy
   obtain hLR := intersection_intervals
                 hφSource hφTarget hV hVConn hNotUV hNotVU hφy
 
@@ -270,8 +268,7 @@ lemma choose_intersection_component_left {U V : Set X}
     rw [this]
     have : mneg1 '' (Ioi a) = Iio (- a) := by
       simp_all only [Homeomorph.coe_neg, image_neg_eq_neg, neg_Ioi, mneg1]
-    rw [← this]
-    exact congrArg (image mneg1) ha
+    exact this ▸ congrArg (image mneg1) ha
 
 /- If φ : U → ℝ and ψ : V → ℝ cover X, then the component of φ '' (U ∩ V)
    containing some fixed point φ y is a half-infinite interval.  We can ensure
@@ -282,7 +279,7 @@ lemma choose_intersection_component_right {U V : Set X}
     (hNotUV : ¬U ⊆ V) (hNotVU : ¬V ⊆ U) {y : X} (hy : y ∈ U ∩ V) :
     ∃ φ' : OpenPartialHomeomorph X ℝ, φ'.source = U ∧ φ'.target = univ ∧
       (∃ a : ℝ, connectedComponentIn (φ' '' (U ∩ V)) (φ' y) = Ioi a) := by
-  have hφy : φ y ∈ φ '' (U ∩ V) := by exact mem_image_of_mem φ hy
+  have hφy : φ y ∈ φ '' (U ∩ V) := mem_image_of_mem φ hy
   obtain hLR := intersection_intervals
                 hφSource hφTarget hV hVConn hNotUV hNotVU hφy
 
@@ -308,8 +305,7 @@ lemma choose_intersection_component_right {U V : Set X}
     rw [this]
     have : mneg1 '' (Iio a) = Ioi (- a) := by
       simp_all only [Homeomorph.coe_neg, image_neg_eq_neg, neg_Iio, mneg1]
-    rw [← this]
-    exact congrArg (image mneg1) ha
+    exact this ▸ congrArg (image mneg1) ha
 
 /- If a connected space is covered by two open sets, neither of which is
    contained in the other, then these open sets have nonempty intersection. -/
@@ -317,9 +313,9 @@ lemma nonempty_inter_connected_open_cover {Y : Type*} [TopologicalSpace Y] [Conn
     {U V : Set Y} (hU : IsOpen U) (hV : IsOpen V) (hUniv : U ∪ V = univ)
     (hNotUV : ¬(U ⊆ V)) (hNotVU : ¬(V ⊆ U)) : Nonempty (U ∩ V : Set Y) := by
   by_contra! h
-  have hDisjoint : Disjoint U V := by
-    exact fun _ hxU hxV ↦ le_bot_iff.mpr <| subset_eq_empty (subset_inter hxU hxV)
-                                         <| isEmpty_coe_sort.mp h
+  have hDisjoint : Disjoint U V :=
+    fun _ hxU hxV ↦ le_bot_iff.mpr <| subset_eq_empty (subset_inter hxU hxV)
+                                   <| isEmpty_coe_sort.mp h
   have hUNonempty : (univ ∩ U).Nonempty := by
     by_contra! _
     simp_all only [univ_inter, empty_subset, not_true_eq_false]

@@ -311,7 +311,7 @@ theorem homeomorph_circle_of_glue_icc_icc {X : Type*} [TopologicalSpace X] [T2Sp
     have (x : Icc c d) : (iccHomeoI c d hcd) x = (x.val - c) / (d - c) := by rfl
     simp only [φ.trans_apply, this, hφx, sub_self, zero_div, hφy, div_self_eq_one₀,
       true_and, φ']
-    have : d - c ≠ 0 := by exact Ne.symm <| ne_of_lt <| sub_pos.mpr hcd
+    have : d - c ≠ 0 := Ne.symm <| ne_of_lt <| sub_pos.mpr hcd
     exact RCLike.ofReal_ne_zero.mp this
 
   let ψ' : B ≃ₜ unitInterval := ψ.trans <| iccHomeoI e f hef
@@ -319,7 +319,7 @@ theorem homeomorph_circle_of_glue_icc_icc {X : Type*} [TopologicalSpace X] [T2Sp
     have (x : Icc e f) : (iccHomeoI e f hef) x = (x.val - e) / (f - e) := by rfl
     simp only [ψ.trans_apply, this, hψx, sub_self, zero_div, hψy, div_self_eq_one₀,
       true_and, ψ']
-    have : f - e ≠ 0 := by exact Ne.symm <| ne_of_lt <| sub_pos.mpr hef
+    have : f - e ≠ 0 := Ne.symm <| ne_of_lt <| sub_pos.mpr hef
     exact RCLike.ofReal_ne_zero.mp this
 
   exact glue_unit_intervals_circle₀ A B φ' ψ' hAx hBx hAy hBy hInter hUnion
@@ -374,9 +374,8 @@ private lemma glue_real_disconnected_intersection_intervals
   have hU : IsOpen U := hφSource ▸ φ.open_source
   have hUConn : IsConnected U := hφSource ▸ partial_homeomorph_IsConnected_source hφTarget
   have hNotConn_φ : ¬ IsConnected (φ '' (U ∩ V)) := by
-    by_contra h
     have : U ∩ V ⊆ φ.source := hφSource ▸ inter_subset_left
-    exact hNotConn <| (partial_homeomorph_image_connected_iff φ this).mpr h
+    exact fun h ↦ hNotConn <| (partial_homeomorph_image_connected_iff φ this).mpr h
 
   have hNonempty : Nonempty (U ∩ V : Set X) :=
     nonempty_inter_connected_open_cover hU hV hUniv hNotUV hNotVU
@@ -393,8 +392,7 @@ private lemma glue_real_disconnected_intersection_intervals
       intro z hz
       have h' := mem_connectedComponentIn hz
       rwa [h z hz] at h'
-    rw [this] at hNotConn_φ
-    exact hNotConn_φ <| isConnected_connectedComponentIn_iff.mpr hφx
+    exact (this ▸ hNotConn_φ) <| isConnected_connectedComponentIn_iff.mpr hφx
   obtain ⟨z, ⟨y, hy, hφy⟩, hCz⟩ := this
   let Cφy : Set ℝ := connectedComponentIn (φ '' (U ∩ V)) (φ y)
 
@@ -421,9 +419,8 @@ private lemma glue_real_disconnected_intersection_intervals
       apply mem_inter
       · exact lt_of_lt_of_le (sub_one_lt (min a b)) (min_le_left a b)
       · exact lt_of_lt_of_le (sub_one_lt (min a b)) (min_le_right a b)
-    have : ¬ Disjoint Cφx Cφy := by
-      by_contra h
-      exact (h.notMem_of_mem_left <| mem_of_mem_inter_left hc) <| mem_of_mem_inter_right hc
+    have : ¬ Disjoint Cφx Cφy :=
+      fun h ↦ (h.notMem_of_mem_left <| mem_of_mem_inter_left hc) <| mem_of_mem_inter_right hc
     exact False.elim <| this hDisjoint
   · -- hCx = Iio a, hCy = Ioi b
     have : a ≤ b := by
@@ -442,9 +439,8 @@ private lemma glue_real_disconnected_intersection_intervals
       apply mem_inter
       · exact lt_of_le_of_lt (le_max_left a b) (lt_add_one (max a b))
       · exact lt_of_le_of_lt (le_max_right a b) (lt_add_one (max a b))
-    have : ¬ Disjoint Cφx Cφy := by
-      by_contra h
-      exact (h.notMem_of_mem_left <| mem_of_mem_inter_left hc) <| mem_of_mem_inter_right hc
+    have : ¬ Disjoint Cφx Cφy :=
+      fun h ↦ (h.notMem_of_mem_left <| mem_of_mem_inter_left hc) <| mem_of_mem_inter_right hc
     exact False.elim <| this hDisjoint
 
 /- If X = U ∪ V where U and V are homeomorphic to ℝ, and the image of U ∩ V
@@ -477,21 +473,17 @@ private lemma disconnected_intersection_two_components
 
   rcases hzInt with hInt | hInt <;> obtain ⟨c,hc⟩ := hInt
   · let d : ℝ := min a c - 1
-    have hdx : d ∈ connectedComponentIn (φ '' (U ∩ V)) (φ x) := by
-      rw [hxa]
-      exact lt_of_le_of_lt' (min_le_left a c) (sub_one_lt (min a c))
-    have hdw : d ∈ connectedComponentIn (φ '' (U ∩ V)) z := by
-      rw [hc]
-      exact lt_of_le_of_lt' (min_le_right a c) (sub_one_lt (min a c))
+    have hdx : d ∈ connectedComponentIn (φ '' (U ∩ V)) (φ x) :=
+      hxa ▸ lt_of_le_of_lt' (min_le_left a c) (sub_one_lt (min a c))
+    have hdw : d ∈ connectedComponentIn (φ '' (U ∩ V)) z :=
+      hc ▸ lt_of_le_of_lt' (min_le_right a c) (sub_one_lt (min a c))
     rw [connectedComponentIn_eq hdw, ← connectedComponentIn_eq hdx] at hzComponent
     exact hzComp.1 hzComponent
   · let d : ℝ := max b c + 1
-    have hdy : d ∈ connectedComponentIn (φ '' (U ∩ V)) (φ y) := by
-      rw [hyb]
-      exact lt_of_le_of_lt (le_max_left b c) (lt_add_one (max b c))
-    have hdw : d ∈ connectedComponentIn (φ '' (U ∩ V)) z := by
-      rw [hc]
-      exact lt_of_le_of_lt (le_max_right b c) (lt_add_one (max b c))
+    have hdy : d ∈ connectedComponentIn (φ '' (U ∩ V)) (φ y) :=
+      hyb ▸ lt_of_le_of_lt (le_max_left b c) (lt_add_one (max b c))
+    have hdw : d ∈ connectedComponentIn (φ '' (U ∩ V)) z :=
+      hc ▸ lt_of_le_of_lt (le_max_right b c) (lt_add_one (max b c))
     rw [connectedComponentIn_eq hdw, ← connectedComponentIn_eq hdy] at hzComponent
     exact hzComp.2 hzComponent
 
@@ -532,13 +524,11 @@ theorem homeomorph_circle_of_glue_open_real_real
       nth_rewrite 2 [← hφ_symm_apply_apply_image_UV]
       exact image_mono <| connectedComponentIn_subset (φ '' (U ∩ V)) (φ z)
     have : IsConnected (φ.symm '' (connectedComponentIn (φ '' (U ∩ V)) (φ z))) := by
-      have hConn : IsConnected (connectedComponentIn (φ '' (U ∩ V)) (φ z)) :=
-        isConnected_connectedComponentIn_iff.mpr <| mem_image_of_mem φ hz
-      have : ContinuousOn φ.symm (connectedComponentIn (φ '' (U ∩ V)) (φ z)) := by
-        apply φ.symm.continuousOn.mono
+      apply IsConnected.image ?_ φ.symm ?_
+      · exact isConnected_connectedComponentIn_iff.mpr <| mem_image_of_mem φ hz
+      · apply φ.symm.continuousOn.mono
         rw [φ.symm_source, hφTarget]
         exact subset_univ _
-      exact IsConnected.image hConn φ.symm this
     refine this.isPreconnected.subset_connectedComponentIn ?_ hsubset
     nth_rewrite 2 [← hφ_symm_apply_apply hz]
     exact mem_image_of_mem φ.symm <| mem_connectedComponentIn <| mem_image_of_mem φ hz
@@ -546,7 +536,7 @@ theorem homeomorph_circle_of_glue_open_real_real
   let f := φ.symm.trans ψ
   have hfSource : φ '' (U ∩ V) ⊆ f.source := by
     rw [φ.symm.trans_source ψ, φ.symm_source, hφTarget, univ_inter, hψSource]
-    intro _ ⟨_,hs,hst⟩
+    intro _ ⟨_, hs, hst⟩
     apply mem_preimage.mpr
     rw [← hst, hφ_symm_apply_apply hs]
     exact mem_of_mem_inter_right hs
@@ -559,22 +549,21 @@ theorem homeomorph_circle_of_glue_open_real_real
       simp only [f, φ.symm.trans_apply] at hst
       apply mem_image_of_mem ψ
       have : φ.symm s ∈ U ∩ V := by
-        obtain ⟨r,hr,hrs⟩ := hs
+        obtain ⟨r, hr, hrs⟩ := hs
         rwa [← congrArg φ.symm hrs, hφ_symm_apply_apply hr]
       rwa [φ.symm_symm]
     · rw [← hst, ← hφ_symm_apply_apply hs]
       simp only [f, φ.symm.trans_apply, mem_image, exists_exists_and_eq_and]
       use s
-  have hf_symm_apply_apply {z : ℝ} : z ∈ φ '' (U ∩ V) → f.symm (f z) = z := by
-    intro hz
-    simp_all only [mem_inter_iff, f.left_inv <| hfSource hz, image_subset_iff, mem_image]
+  have hf_symm_apply_apply {z : ℝ} : z ∈ φ '' (U ∩ V) → f.symm (f z) = z :=
+    fun h ↦ by simp_all only [mem_inter_iff, f.left_inv <| hfSource h, image_subset_iff, mem_image]
   have hfsymmImage : f.symm '' (ψ '' (U ∩ V)) = (φ '' (U ∩ V)) := by
     rw [← hfImage]
-    apply Subset.antisymm <;> intro t ⟨s,hs,hst⟩
-    · obtain ⟨r,hr,hrs⟩ := hs
+    apply Subset.antisymm <;> intro t ⟨s, hs, hst⟩
+    · obtain ⟨r, hr, hrs⟩ := hs
       rwa [← hst, ← hrs, hf_symm_apply_apply hr]
     · rw [← image_comp, ← hst, ← hf_symm_apply_apply <| mem_image_of_mem φ hs]
-      exact mem_image_of_mem (f.symm ∘ f) <| mem_image_of_mem (↑φ) hs
+      exact mem_image_of_mem (f.symm ∘ f) <| mem_image_of_mem φ hs
 
   let Cφx := connectedComponentIn (φ '' (U ∩ V)) (φ x)
   let Cφy := connectedComponentIn (φ '' (U ∩ V)) (φ y)
@@ -635,13 +624,9 @@ theorem homeomorph_circle_of_glue_open_real_real
       <| Subset.trans (connectedComponentIn_subset (φ '' (U ∩ V)) (φ z)) hfSource
     have hfCPreconn : IsPreconnected (f '' (connectedComponentIn (φ '' (U ∩ V)) (φ z))) :=
       isPreconnected_connectedComponentIn.image f this
-    have hfφx_mem : ψ z ∈ f '' (connectedComponentIn (φ '' (U ∩ V)) (φ z)) := by
-      rw [← hfφz]
-      exact mem_image_of_mem f <| mem_connectedComponentIn <| mem_image_of_mem φ hz
-    have : f '' (connectedComponentIn (φ '' (U ∩ V)) (φ z)) ⊆ ψ '' (U ∩ V) := by
-      rw [← hfImage]
-      exact image_mono <| connectedComponentIn_subset (φ '' (U ∩ V)) (φ z)
-    exact hfCPreconn.subset_connectedComponentIn hfφx_mem this
+    apply hfCPreconn.subset_connectedComponentIn ?_ ?_
+    · exact hfφz ▸ mem_image_of_mem f <| mem_connectedComponentIn <| mem_image_of_mem φ hz
+    · exact hfImage ▸ (image_mono <| connectedComponentIn_subset (φ '' (U ∩ V)) (φ z))
 
   have hMono_a_d : StrictMonoOn f (Iio a) :=
     monotone_iio_to_ioi hφSource hφTarget hψSource hψTarget hx hxφ hxψ
@@ -650,12 +635,10 @@ theorem homeomorph_circle_of_glue_open_real_real
       rw [inter_comm] at hy hyψ hyφ
       exact monotone_iio_to_ioi hψSource hψTarget hφSource hφTarget hy hyψ hyφ
     intro p hp q hq hpq
-    have hpUV : p ∈ φ '' (U ∩ V) := by
-      rw [← hyφ] at hp
-      exact (connectedComponentIn_subset (φ '' (U ∩ V)) (φ y)) hp
-    have hqUV : q ∈ φ '' (U ∩ V) := by
-      rw [← hyφ] at hq
-      exact (connectedComponentIn_subset (φ '' (U ∩ V)) (φ y)) hq
+    have hpUV : p ∈ φ '' (U ∩ V) :=
+      connectedComponentIn_subset (φ '' (U ∩ V)) (φ y) (hyφ ▸ hp)
+    have hqUV : q ∈ φ '' (U ∩ V) :=
+      connectedComponentIn_subset (φ '' (U ∩ V)) (φ y) (hyφ ▸ hq)
     rw [← hyφ] at hp hq
     obtain ⟨hfp,hfq⟩ : f p ∈ Iio c ∧ f q ∈ Iio c := by
       rw [← hyψ]
@@ -682,24 +665,18 @@ theorem homeomorph_circle_of_glue_open_real_real
     rw [hφComponents, mem_union] at hw
     by_contra hyCpt
     simp only [show w ∉ Cφx by exact hyCpt, false_or] at hw
-    have : z ∈ Cψy := by
-      rw [← hwz]
-      exact (hfComponent hy hfφy) <| mem_image_of_mem f hw
+    have : z ∈ Cψy := hwz ▸ ((hfComponent hy hfφy) <| mem_image_of_mem f hw)
     exact disjoint_left.mp hψDisjoint hz this
 
   have hφxφy : φ x < φ y := calc
-    φ x < a := by apply (mem_Iio (b := a)).mp; rw [← hxφ]
-                  exact mem_connectedComponentIn <| mem_image_of_mem φ hx
+    φ x < a := (mem_Iio (b := a)).mp <| hxφ ▸ mem_connectedComponentIn <| mem_image_of_mem φ hx
     _ ≤ b := hab
-    _ < φ y := by apply (mem_Ioi (b := b)).mp; rw [← hyφ]
-                  exact mem_connectedComponentIn <| mem_image_of_mem φ hy
+    _ < φ y := (mem_Ioi (b := b)).mp <| hyφ ▸ mem_connectedComponentIn <| mem_image_of_mem φ hy
 
   have hψxψy : ψ y < ψ x := calc
-    ψ y < c := by apply mem_Iio.mp; rw [← hyψ]
-                  exact mem_connectedComponentIn <| mem_image_of_mem ψ hy
+    ψ y < c := mem_Iio.mp <| hyψ ▸ mem_connectedComponentIn <| mem_image_of_mem ψ hy
     _ ≤ d := hcd
-    _ < ψ x := by apply mem_Ioi.mp; rw [← hxψ]
-                  exact mem_connectedComponentIn <| mem_image_of_mem ψ hx
+    _ < ψ x := mem_Ioi.mp <| hxψ ▸ mem_connectedComponentIn <| mem_image_of_mem ψ hx
 
   let A := φ.symm '' (Icc (φ x) (φ y))
   let B := ψ.symm '' (Icc (ψ y) (ψ x))
@@ -743,18 +720,16 @@ theorem homeomorph_circle_of_glue_open_real_real
     rw [← Iio_union_Ico_eq_Iio <| le_of_lt hφxa, ← Ioc_union_Ioi_eq_Ioi <| le_of_lt hφyb]
     rw [image_union, image_union, ← union_assoc]
     refine union_subset (union_subset (union_subset ?_ ?_) ?_) ?_
-    · have : φ.symm '' (Iio (φ x)) ⊆ φ.symm '' (Iio a) := by
-        exact image_mono <| fun _ hs ↦ lt_trans (mem_Iio.mp hs) hφxa
-      rw [← hxφ] at this
-      exact subset_trans this <| subset_trans (hφsymmComponent hx) hccI_x_subset_AB
+    · have : φ.symm '' (Iio (φ x)) ⊆ φ.symm '' (Iio a) :=
+        image_mono <| fun _ hs ↦ lt_trans (mem_Iio.mp hs) hφxa
+      exact subset_trans (hxφ ▸ this) <| subset_trans (hφsymmComponent hx) hccI_x_subset_AB
     · refine subset_union_of_subset_left (image_mono ?_) B
       exact fun _ hs ↦ ⟨hs.1, le_of_lt <| gt_trans (lt_of_le_of_lt hab hφyb) hs.2⟩
     · refine subset_union_of_subset_left (image_mono ?_) B
       exact fun _ hs ↦ ⟨le_of_lt <| lt_trans (lt_of_lt_of_le hφxa hab) hs.1, hs.2⟩
-    · have : φ.symm '' (Ioi (φ y)) ⊆ φ.symm '' (Ioi b) := by
-        exact image_mono <| fun _ hs ↦ lt_trans hφyb (mem_Ioi.mp hs)
-      rw [← hyφ] at this
-      exact subset_trans this <| subset_trans (hφsymmComponent hy) hccI_y_subset_AB
+    · have : φ.symm '' (Ioi (φ y)) ⊆ φ.symm '' (Ioi b) :=
+        image_mono <| fun _ hs ↦ lt_trans hφyb (mem_Ioi.mp hs)
+      exact subset_trans (hyφ ▸ this) <| subset_trans (hφsymmComponent hy) hccI_y_subset_AB
 
   have hUV_φsymm : U ∩ V = φ.symm '' ((Iio a) ∪ (Ioi b)) := by
     simp only [Cφx, Cφy, hxφ, hyφ] at hφComponents
@@ -771,7 +746,7 @@ theorem homeomorph_circle_of_glue_open_real_real
     have : InjOn φ.symm univ := by
       rw [← hφTarget, ← φ.symm_source]
       exact φ.symm.injOn
-    rw [← image_diff_of_injOn this (fun _ _ ↦ trivial) (t := (Iio a) ∪ (Ioi b))]
+    rw [← image_diff_of_injOn this (subset_univ _) (t := (Iio a) ∪ (Ioi b))]
     apply congrArg (image φ.symm)
     rw [← compl_eq_univ_diff, ← compl_Icc, compl_compl]
 
@@ -780,7 +755,7 @@ theorem homeomorph_circle_of_glue_open_real_real
     have : InjOn ψ.symm univ := by
       rw [← hψTarget, ← ψ.symm_source]
       exact ψ.symm.injOn
-    rw [← image_diff_of_injOn this (fun _ _ ↦ trivial) (t := (Iio c) ∪ (Ioi d))]
+    rw [← image_diff_of_injOn this (subset_univ _) (t := (Iio c) ∪ (Ioi d))]
     apply congrArg (image ψ.symm)
     rw [← compl_eq_univ_diff, ← compl_Icc, compl_compl]
 
@@ -819,8 +794,7 @@ theorem homeomorph_circle_of_glue_open_real_real
           apply mem_inter
           · exact image_mono Icc_subset_Ici_self <| inter_subset_left hs
           · exact image_mono Icc_subset_Iic_self <| inter_subset_right hs
-        rw [this]
-        exact mem_insert x {y}
+        exact this ▸ mem_insert x {y}
       · have : s = y := by
           have hsCpt : s ∈ connectedComponentIn (U ∩ V) y :=
             hφsymmComponent hy (by rwa [← hyφ] at hsb)
