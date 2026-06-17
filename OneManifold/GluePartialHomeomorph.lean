@@ -43,9 +43,7 @@ theorem openPartialHomeomorph_cut_and_paste {X Y : Type*} [TopologicalSpace X]
     (hAB : ∀ x ∈ frontier A, f x = g x) (hImageA : f '' A = g '' A) :
     ∃ α : OpenPartialHomeomorph X Y,
       (α.source = g.source ∧ α.target = g.target ∧ EqOn α f A ∧ EqOn α g Aᶜ) := by
-  have hfAfTarget : f '' A ⊆ f.target := by
-    rw [← f.image_source_eq_target]
-    exact image_mono hAf
+  have hfAfTarget : f '' A ⊆ f.target := f.image_source_eq_target ▸ image_mono hAf
   have hfAgtarget: f '' A ⊆ g.target := by
     rw [hImageA, ← g.image_source_eq_target]
     exact image_mono hAg
@@ -120,9 +118,7 @@ lemma homeomorph_real_real_image_Iic_of_strictMono {f : ℝ ≃ₜ ℝ} {a : ℝ
     StrictMono f → f '' (Iic a) = Iic (f a) := by
   intro hMono
   apply Subset.antisymm
-  · intro _ ⟨_, hy_le_a, hfy⟩
-    rw [← hfy]
-    exact hMono.monotone hy_le_a
+  · exact fun _ ⟨_, hy_le_a, hfy⟩ ↦ hfy ▸ hMono.monotone hy_le_a
   · intro x hx
     rw [← f.apply_symm_apply x]
     apply mem_image_of_mem
@@ -141,10 +137,10 @@ lemma homeomorph_real_real_image_Ioo_of_strictMono {f : ℝ ≃ₜ ℝ} {a b : �
     apply mem_Ioo.mpr ⟨?_, ?_⟩ <;> apply hMono <;> assumption
   · intro t htIoo
     rw [← f.apply_symm_apply t]
-    obtain ⟨hfat, htfb⟩ := mem_Ioo.mp htIoo
+    apply mem_image_of_mem
+    obtain ⟨_, _⟩ := mem_Ioo.mp htIoo
     have : StrictMono f.symm :=
       homeomorph_real_real_strictMono_iff_symm_strictMono.mp hMono
-    apply mem_image_of_mem
     rw [← f.symm_apply_apply a, ← f.symm_apply_apply b]
     apply mem_Ioo.mpr ⟨?_, ?_⟩ <;> apply this <;> assumption
 
@@ -158,11 +154,11 @@ lemma homeomorph_real_real_image_Icc_of_strictMono {f : ℝ ≃ₜ ℝ} {a b : �
     apply mem_Icc.mpr ⟨?_, ?_⟩ <;> apply hMono.monotone <;> assumption
   · intro t htIcc
     rw [← f.apply_symm_apply t]
-    obtain ⟨hfat, htfb⟩ := mem_Icc.mp htIcc
-    have : StrictMono f.symm :=
-      homeomorph_real_real_strictMono_iff_symm_strictMono.mp hMono
     apply mem_image_of_mem
     rw [← f.symm_apply_apply a, ← f.symm_apply_apply b]
+    obtain ⟨_, _⟩ := mem_Icc.mp htIcc
+    have : StrictMono f.symm :=
+      homeomorph_real_real_strictMono_iff_symm_strictMono.mp hMono
     apply mem_Icc.mpr ⟨?_, ?_⟩ <;> apply this.monotone <;> assumption
 
 lemma homeomorph_real_real_cut_paste {f g : ℝ ≃ₜ ℝ} {a : ℝ}
@@ -261,8 +257,7 @@ lemma real_homeomorph_interpolating_four_points {p q a b c d : ℝ}
       have : φ₃ t = φ₃ s := by
         rw [hφs]
         exact hIcc_compl h
-      rw [φ₃.injective this] at h
-      exact h hsIcc
+      exact (φ₃.injective this ▸ h) hsIcc
     · intro t ht
       rw [← φ₃.apply_symm_apply t]
       apply mem_image_of_mem φ₃

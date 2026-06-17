@@ -22,16 +22,16 @@ namespace OpenIntervalHomeomorphReal
 
 private lemma hIoo_shift {a b : ℝ} (hab : a < b) (t : Ioo a b) :
     (t - a) / (b - a) ∈ Ioo (0 : ℝ) 1 := by
-  obtain ⟨x,⟨hx1,hx2⟩⟩ := t
-  have habpos : b - a > 0 := by exact sub_pos.mpr hab
+  obtain ⟨x, ⟨hx1, hx2⟩⟩ := t
+  have habpos : b - a > 0 := sub_pos.mpr hab
   constructor
   · exact div_pos (sub_pos.mpr hx1) habpos
   · exact (div_lt_one₀ habpos).mpr <| sub_lt_sub_right hx2 a
 
 private lemma hIoo_shift' {a b : ℝ} (hab : a < b) (t : Ioo (0 : ℝ) 1) :
     (b - a) * t + a ∈ Ioo a b := by
-  obtain ⟨x,⟨hx1,hx2⟩⟩ := t
-  have habpos : b - a > 0 := by exact sub_pos.mpr hab
+  obtain ⟨x, ⟨hx1, hx2⟩⟩ := t
+  have habpos : b - a > 0 := sub_pos.mpr hab
   constructor
   · exact lt_add_of_pos_left a <| mul_pos habpos hx1
   · exact lt_tsub_iff_right.mp <| mul_lt_of_lt_one_right habpos hx2
@@ -94,22 +94,18 @@ theorem homeomorph_open_real {U : Set ℝ} (hOpen : IsOpen U) (hConn : IsConnect
     exact φ.symm.trans <| Homeomorph.Set.univ ℝ
   rcases (open_real_classification hOpen hConn) with h | h | h | h
   · obtain ⟨a, b, hIoo⟩ := h
-    rw [hIoo]
     have hab : a < b := by
       have : Nonempty U := Nonempty.to_subtype hConn.nonempty
       have : (Ioo a b).Nonempty := nonempty_coe_sort.mp (by rwa [hIoo] at this)
       obtain ⟨hat, htb⟩ := mem_Ioo.mp this.some_mem
       exact lt_trans hat htb
-    exact Nonempty.intro <| homeomorph_Ioo_real hab
+    exact Nonempty.intro <| hIoo ▸ homeomorph_Ioo_real hab
   · obtain ⟨a, hIio⟩ := h
-    rw [hIio]
     let φ : Iio a ≃ₜ Ioi (0 : ℝ) := (homeomorph_neg_Iio a).trans (homeomorph_Ioi_Ioi (-a))
-    exact Nonempty.intro <| φ.trans expHomeo
+    exact Nonempty.intro <| hIio ▸ φ.trans expHomeo
   · obtain ⟨a, hIoi⟩ := h
-    rw [hIoi]
-    exact Nonempty.intro <| (homeomorph_Ioi_Ioi a).trans expHomeo
-  · rw [h]
-    exact Nonempty.intro <| Homeomorph.Set.univ ℝ
+    exact Nonempty.intro <| hIoi ▸ (homeomorph_Ioi_Ioi a).trans expHomeo
+  · exact Nonempty.intro <| h ▸ Homeomorph.Set.univ ℝ
 
 end OpenIntervalHomeomorphReal
 
@@ -130,7 +126,8 @@ private lemma chart_homeo_real (x : M) : Nonempty (PrecompactRealChart M x) := b
   have hxψ : x ∈ ψ.source := by
     simp_all only [(chartAt ℝ¹ x).transHomeomorph_source, mem_chart_source, ψ]
 
-  have : ∃ (a : ℝ) (b : ℝ), a < b ∧ y ∈ (Ioo a b) ∧ (Icc a b) ⊆ ψ.target := by
+  obtain ⟨a, b, hab, hyab, habV⟩ : ∃ (a : ℝ) (b : ℝ),
+      a < b ∧ y ∈ (Ioo a b) ∧ (Icc a b) ⊆ ψ.target := by
     have hyTarget : y ∈ ψ.target := ψ.map_source hxψ
     obtain ⟨W, hW, hyW, hWψ⟩ := (Real.isTopologicalBasis_Ioo_rat).exists_subset_of_mem_open
                                  hyTarget ψ.open_target
@@ -142,7 +139,6 @@ private lemma chart_homeo_real (x : M) : Nonempty (PrecompactRealChart M x) := b
     apply subset_trans ?_ hWψ
     exact fun _ ht => mem_Ioo.mpr ⟨lt_of_lt_of_le hacd.1 ht.1, lt_of_le_of_lt ht.2 hbcd.2⟩
 
-  obtain ⟨a, b, hab, hyab, habV⟩ := this
   have habV' : Ioo a b ⊆ ψ.target := subset_trans Ioo_subset_Icc_self habV
   let U' := ψ.symm '' (Ioo a b)
   have f : U' ≃ₜ (Ioo a b) := by
@@ -150,9 +146,8 @@ private lemma chart_homeo_real (x : M) : Nonempty (PrecompactRealChart M x) := b
     · exact MapsTo.image_subset <| fun _ p ↦ ψ.symm_mapsTo (habV' p)
     · exact LeftInvOn.image_image <| fun _ ht => ψ.right_inv (habV' ht)
   have hCompactClosure : IsCompact (closure U') := by
-    have hIccCompact : IsCompact (closure (Ioo a b)) := by
-      rw [closure_Ioo <| ne_of_lt hab]
-      exact isCompact_Icc
+    have hIccCompact : IsCompact (closure (Ioo a b)) :=
+      (closure_Ioo <| ne_of_lt hab) ▸ isCompact_Icc
     have hContOn : ContinuousOn ψ.symm (closure (Ioo a b)) := by
       apply ψ.symm.continuousOn.mono
       rwa [closure_Ioo <| ne_of_lt hab, ψ.symm_source]
@@ -161,10 +156,7 @@ private lemma chart_homeo_real (x : M) : Nonempty (PrecompactRealChart M x) := b
 
   let chart : PrecompactRealChart M x := {
     U : Set M := U',
-    contains_x : x ∈ U' := by
-      apply (mem_image ψ.symm (Ioo a b) x).mpr
-      use y
-      exact ⟨hyab, ψ.left_inv hxψ⟩,
+    contains_x : x ∈ U' := (mem_image ψ.symm (Ioo a b) x).mpr ⟨y, hyab, ψ.left_inv hxψ⟩,
     isOpen : IsOpen U' := ψ.isOpen_image_symm_of_subset_target isOpen_Ioo habV',
     chartAt := f.trans <| OpenIntervalHomeomorphReal.homeomorph_Ioo_real hab
     precompact := hCompactClosure
@@ -176,7 +168,7 @@ private lemma chart_homeo_real (x : M) : Nonempty (PrecompactRealChart M x) := b
 lemma real_charts : ∃ U : M → Set M,
     (∀ x, x ∈ U x) ∧ (∀ x, IsOpen (U x)) ∧ (∀ x, Nonempty ((U x) ≃ₜ ℝ))
     ∧ (∀ x, IsCompact (closure (U x))):= by
-  let f := fun p => (chart_homeo_real M p).some
-  use fun p => (f p).U
-  exact ⟨fun x => (f x).contains_x, fun x => (f x).isOpen,
+  let f := fun x => (chart_homeo_real M x).some
+  exact ⟨fun x => (f x).U,
+         fun x => (f x).contains_x, fun x => (f x).isOpen,
          fun x => Nonempty.intro (f x).chartAt, fun x => (f x).precompact⟩

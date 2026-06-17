@@ -44,8 +44,8 @@ lemma open_subtype_homeomorph {Y : Type*} [TopologicalSpace Y] {U Ω : Set Y}
   let f : U ≃ₜ U' := {
     toFun : U → U' := fun t => ⟨⟨t.val, mem_of_subset_of_mem hSubset t.prop⟩, t.prop⟩,
     invFun : U' → U := fun t => ⟨↑t, t.prop⟩,
-    left_inv := by intro _; simp only [Subtype.coe_eta],
-    right_inv := by intro _; simp only [Subtype.coe_eta],
+    left_inv := fun _ ↦ by simp only [Subtype.coe_eta],
+    right_inv := fun _ ↦ by simp only [Subtype.coe_eta],
     continuous_toFun := by fun_prop,
     continuous_invFun := by
       apply Continuous.subtype_mk
@@ -70,11 +70,9 @@ lemma union_of_two_real_lines {U V : Set X} (hU : IsOpen U) (hV : IsOpen V)
     apply isConnected_iff_connectedSpace.mp
     have hConn (W : Set X) : Nonempty (W ≃ₜ ℝ) → IsConnected W := by
       intro hWR
-      apply isConnected_iff_connectedSpace.mpr
-      have : IsConnected (@univ W) := by
-        exact hWR.some.symm.isConnected_preimage.mp isConnected_univ
-      exact connectedSpace_iff_univ.mpr this
+      apply isConnected_iff_connectedSpace.mpr <| connectedSpace_iff_univ.mpr ?_
+      exact hWR.some.symm.isConnected_preimage.mp isConnected_univ
     exact IsConnected.union Nonempty.of_subtype (hConn U hUR) (hConn V hVR)
-  apply union_of_two_real_lines' hU' hV' hUniv ?_ ?_
-  · exact Nonempty.intro <| hUU'.some.symm.trans hUR.some
-  · exact Nonempty.intro <| hVV'.some.symm.trans hVR.some
+  apply union_of_two_real_lines' hU' hV' hUniv ?_ ?_ <;> apply Nonempty.intro
+  · exact hUU'.some.symm.trans hUR.some
+  · exact hVV'.some.symm.trans hVR.some

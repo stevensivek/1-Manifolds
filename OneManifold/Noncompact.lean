@@ -25,8 +25,7 @@ lemma minimal_real_cover : ∃ (C : Set (Set M)),
   have hC₀Prop {p : Set M → Prop} : (∀ x : M, p (U x)) → (∀ Ω ∈ C₀, p Ω) := by
     intro hWp _ hΩ
     obtain ⟨x, hx⟩ := mem_range.mp hΩ
-    rw [← hx]
-    exact hWp x
+    exact hx ▸ hWp x
   have hC₀Open : ∀ s ∈ C₀, IsOpen s := hC₀Prop hUOpen
   have hC₀Real : ∀ s ∈ C₀, Nonempty (s ≃ₜ ℝ) := hC₀Prop hUReal
   have hC₀Precompact : ∀ s ∈ C₀, IsCompact (closure s) := hC₀Prop hUPrecompact
@@ -81,9 +80,7 @@ lemma real_homeomorph_of_finite_connected_union_of_real_homeomorphs {X : Type*}
     exact hi
   have htEq : ⋃ i ∈ t, f i = ⋃ i ≤ n, f i := by
     simp_all only [mem_toFinset, mem_setOf_eq, t]
-  have htConn : IsConnected (⋃ i ∈ t, f i) := by
-    rw [htEq]
-    exact hConn
+  have htConn : IsConnected (⋃ i ∈ t, f i) := htEq ▸ hConn
   have := real_or_circle_of_finitely_covered_one_submanifold X f
           htOpen htReal htSubset htEq hConn
   rcases this with hR | hS
@@ -105,8 +102,7 @@ lemma exhaustion_of_one_manifold [ConnectedSpace M] {C : Set (Set M)}
     rw [← Subtype.coe_image_univ U]
     have hConnUnivU : IsConnected (@univ U) :=
       (hReal U hU).some.symm.isConnected_preimage.mp isConnected_univ
-    exact IsConnected.image hConnUnivU Subtype.val
-      (Continuous.continuousOn continuous_subtype_val)
+    exact hConnUnivU.image Subtype.val continuous_subtype_val.continuousOn
   obtain ⟨f, hf⟩ := connected_enumeration_of_minimal_open_cover hC hInf hOpen hConn hMinimal
   let V : ℕ → Set M := fun n => ⋃ i ≤ n, f i
   have hVCover : ⋃ n, V n = univ := by
@@ -233,8 +229,7 @@ theorem real_or_circle_of_one_manifold [ConnectedSpace M] :
     have hUReal : ∀ n, Nonempty (U n ≃ₜ ℝ) := by
       intro n
       obtain ⟨m, hm⟩ := hUSubcover n
-      rw [hm]
-      exact hVReal m
+      exact hm ▸ hVReal m
     exact homeomorph_real_of_union_real hUCover hUOpen hUReal hUPrecompact hUStrictMono
   · let U : {s // s ∈ C} → Set M := Subtype.val
     haveI : Finite C := Finite.of_not_infinite hCInf

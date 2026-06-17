@@ -38,18 +38,17 @@ lemma intersection_intervals {U V : Set X}
     (hNotUV : ¬U ⊆ V) (hNotVU : ¬V ⊆ U) {x : ℝ} (hx : x ∈ φ '' (U ∩ V)) :
     (∃ a : ℝ, connectedComponentIn (φ '' (U ∩ V)) x = Iio a)
     ∨ (∃ a : ℝ, connectedComponentIn (φ '' (U ∩ V)) x = Ioi a) := by
-  have hU : IsOpen U := by rw [← hφSource]; exact φ.open_source
+  have hU : IsOpen U := hφSource ▸ φ.open_source
   have hUV : IsOpen (U ∩ V) := IsOpen.inter hU hV
   let I : Set ℝ := φ '' (U ∩ V)
   have hφInter_open : IsOpen I := by
     apply φ.isOpen_image_of_subset_source hUV
-    rw [hφSource]
-    exact inter_subset_left
+    exact hφSource ▸ inter_subset_left
   have hφInter_proper : I ≠ univ := by
     by_contra! hI
     rw [← hφTarget, ← φ.image_source_eq_target] at hI
-    have hUVφ : U ∩ V ⊆ φ.source := by
-      exact subset_of_subset_of_eq inter_subset_left (Eq.symm hφSource)
+    have hUVφ : U ∩ V ⊆ φ.source :=
+      subset_of_subset_of_eq inter_subset_left (Eq.symm hφSource)
     obtain h := (InjOn.image_subset_image_iff φ.injOn (fun _ a ↦ a) hUVφ).mp
                 <| Eq.subset (Eq.symm hI)
     rw [hφSource] at h
@@ -89,14 +88,10 @@ lemma intersection_intervals {U V : Set X}
           rw [← Ioo_union_left hab, ← hx]
           apply union_subset_iff.mpr
           exact ⟨connectedComponentIn_subset I x, singleton_subset_iff.mpr ha⟩
-        have : x ∈ Ico a b := by
-          apply mem_Ico_of_Ioo
-          rw [← hx]
-          exact mem_connectedComponentIn hxI
+        have : x ∈ Ico a b := mem_Ico_of_Ioo <| hx ▸ mem_connectedComponentIn hxI
         have hIcoIoo : Ico a b ⊆ connectedComponentIn I x :=
           isPreconnected_Ico.subset_connectedComponentIn this hIcoSubset
-        rw [hx] at hIcoIoo
-        exact (notMem_Ioo_of_le <| le_refl a) (hIcoIoo <| left_mem_Ico.mpr hab)
+        exact (notMem_Ioo_of_le <| le_refl a) (hx ▸ hIcoIoo <| left_mem_Ico.mpr hab)
 
       have hbI : b ∉ I := by
         by_contra! hb
@@ -104,13 +99,10 @@ lemma intersection_intervals {U V : Set X}
           rw [← Ioo_union_right hab, ← hx]
           apply union_subset_iff.mpr
           exact ⟨connectedComponentIn_subset I x, singleton_subset_iff.mpr hb⟩
-        have : x ∈ Ioc a b := by
-          apply mem_Ioc_of_Ioo
-          exact hx ▸ mem_connectedComponentIn hxI
+        have : x ∈ Ioc a b := mem_Ioc_of_Ioo <| hx ▸ mem_connectedComponentIn hxI
         have hIcoIoo : Ioc a b ⊆ connectedComponentIn I x :=
           isPreconnected_Ioc.subset_connectedComponentIn this hIocSubset
-        rw [hx] at hIcoIoo
-        exact (notMem_Ioo_of_ge <| le_refl b) (hIcoIoo <| right_mem_Ioc.mpr hab)
+        exact (notMem_Ioo_of_ge <| le_refl b) (hx ▸ hIcoIoo <| right_mem_Ioc.mpr hab)
 
       have hφ_neq_val {y : X} {c : ℝ} (hc : c ∉ I) : y ∈ φ.source → φ y = c → y ∉ V := by
         intro hysource hφy
@@ -122,14 +114,13 @@ lemma intersection_intervals {U V : Set X}
       have : φ.source ∩ V ∩ φ ⁻¹' (Icc a b) = φ.source ∩ V ∩ φ ⁻¹' (Ioo a b) := by
         apply Subset.antisymm_iff.mpr
         constructor
-        · rintro t ⟨htUV,htφ⟩
+        · rintro t ⟨htUV, htφ⟩
+          apply mem_inter htUV <| mem_preimage.mpr ?_
+          have heq := eq_endpoints_or_mem_Ioo_of_mem_Icc <| mem_preimage.mp htφ
           obtain ⟨htU, htV⟩ := (mem_inter_iff t φ.source V).mp htUV
           have hta : φ t ≠ a := fun s ↦ hφ_neq_val haI htU s htV
           have htb : φ t ≠ b := fun s ↦ hφ_neq_val hbI htU s htV
-          have : φ t ∈ Ioo a b := by
-            obtain ⟨hle, hge⟩ := htφ
-            exact ⟨lt_of_le_of_ne hle (Ne.symm hta), lt_of_le_of_ne hge htb⟩
-          exact mem_inter htUV this
+          simpa only [hta, htb, false_or] using heq
         · exact inter_subset_inter (Subset.refl _) <| preimage_mono Ioo_subset_Icc_self
 
       rw [← hφSource, this]
@@ -138,17 +129,14 @@ lemma intersection_intervals {U V : Set X}
       apply inter_congr_right
       · rw [inter_comm, ← inter_assoc]
         exact inter_subset_right
-      · have habImg : Ioo a b ⊆ φ '' (U ∩ V) := by
-          rw [← hx]
-          exact connectedComponentIn_subset I x
+      · have habImg : Ioo a b ⊆ φ '' (U ∩ V) := hx ▸ connectedComponentIn_subset I x
         have hφinv : φ.source ∩ φ ⁻¹' (Ioo a b) ⊆ φ.source ∩ (U ∩ V) := by
           apply subset_inter inter_subset_left
           rintro y ⟨hyU, hyφ⟩
           constructor
           · rwa [← hφSource]
           · obtain ⟨w, hwUV, hφw⟩ := (mem_image φ (U ∩ V) (φ y)).mp <| habImg hyφ
-            have hwSource : w ∈ φ.source := by
-              rw [hφSource]; exact mem_of_mem_inter_left hwUV
+            have hwSource : w ∈ φ.source := hφSource ▸ mem_of_mem_inter_left hwUV
             rw [← φ.injOn hwSource hyU hφw]
             exact mem_of_mem_inter_right hwUV
         have : φ.source ∩ (U ∩ V) ⊆ V ∩ φ.source := by
@@ -211,9 +199,7 @@ lemma intersection_intervals {U V : Set X}
       rw [inter_eq_self_of_subset_right, ← hSΩ]
       · exact Set.Nonempty.of_subtype
       · exact inter_subset_left
-    have : V ⊆ U := by
-      rw [← hφSource]
-      exact (subset_inter_iff.mp this).1
+    have : V ⊆ U := hφSource ▸ (subset_inter_iff.mp this).1
     exact hNotVU this
 
   let C := connectedComponentIn I x
@@ -352,8 +338,8 @@ lemma image_connectedComponentIn {Y Z : Type*} [TopologicalSpace Y] [Topological
     φ '' (connectedComponentIn φ.source y) = connectedComponentIn φ.target (φ y) := by
   apply Set.Subset.antisymm
   · exact partial_homeomorph_connected_component_subset hy
-  · have {A : Set Z} (hA : A ⊆ φ.target) : φ '' (φ.symm '' A) = A := by
-      exact LeftInvOn.image_image <| fun _ t ↦ φ.rightInvOn (hA t)
+  · have {A : Set Z} (hA : A ⊆ φ.target) : φ '' (φ.symm '' A) = A :=
+      LeftInvOn.image_image <| fun _ t ↦ φ.rightInvOn (hA t)
     rw [← this <| connectedComponentIn_subset φ.target (φ y)]
     apply image_mono
     have hφy : φ y ∈ φ.symm.source := by simp_all
