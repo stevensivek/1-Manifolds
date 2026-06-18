@@ -229,6 +229,8 @@ def iicHomeo_iic0 (t : 𝕜) : Iic t ≃ₜ Iic (0 : 𝕜) := {
       exact Continuous.add continuous_subtype_val continuous_const
   }
 
+lemma iicHomeo_iic0_eval (c : 𝕜) (t : Iic c) : iicHomeo_iic0 c t = t.val - c := by rfl
+
 def iciHomeo_ici0 (t : 𝕜) : Ici t ≃ₜ Ici (0 : 𝕜) := {
     toFun := fun x => ⟨x.val - t, sub_nonneg_of_le (b := t) x.property⟩,
     invFun := fun x => ⟨x.val + t, le_add_of_nonneg_left x.property (a := t)⟩,
@@ -241,6 +243,9 @@ def iciHomeo_ici0 (t : 𝕜) : Ici t ≃ₜ Ici (0 : 𝕜) := {
       apply Continuous.subtype_mk
       exact Continuous.add continuous_subtype_val continuous_const
   }
+
+omit [OrderedSub 𝕜] in
+lemma iciHomeo_ici0_eval (c : 𝕜) (t : Ici c) : iciHomeo_ici0 c t = t.val - c := by rfl
 
 noncomputable def icc_flip {a b : ℝ} (h : a < b) : Icc a b ≃ₜ Icc a b := by
   exact ((iccHomeoI a b h).trans unitInterval.symmHomeomorph).trans (iccHomeoI a b h).symm
