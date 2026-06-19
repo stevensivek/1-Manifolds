@@ -22,24 +22,26 @@ spaces homeomorphic to ℝ.
 open Set Function
 set_option linter.style.emptyLine false
 
-section RealGlueIci
+section RealGlueIicIci
+
+variable {α : Type*} [LinearOrder α] [TopologicalSpace α]
 
 private lemma mem_union_and_not_mem_left {X : Type*} [TopologicalSpace X] {A B : Set X}
     (hUnion : A ∪ B = univ) {t : X} (ht : t ∉ A) : t ∈ B := by
   have : t ∈ A ∪ B := hUnion ▸ trivial
   simpa only [mem_union, ht, false_or] using this
 
-noncomputable def ici_glue_real_map {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) (hUnion : A ∪ B = univ) : X → ℝ :=
+noncomputable def glue_iic_ici_map {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) (hUnion : A ∪ B = univ) : X → α :=
   fun t => if h : t ∈ A then φ ⟨t, h⟩ else ψ ⟨t, mem_union_and_not_mem_left hUnion h⟩
 
-lemma ici_glue_real_map_eval_left {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) (hUnion : A ∪ B = univ)
+lemma glue_iic_ici_map_eval_left {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) (hUnion : A ∪ B = univ)
     {t : X} (hA : t ∈ A) :
-    (ici_glue_real_map φ ψ hUnion) t = φ ⟨t, hA⟩ := by
-  simp only [ici_glue_real_map, hA, ↓reduceDIte]
+    (glue_iic_ici_map φ ψ hUnion) t = φ ⟨t, hA⟩ := by
+  simp only [glue_iic_ici_map, hA, ↓reduceDIte]
 
 private lemma eval_homeomorph_subtype_of_symm_val
     {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
@@ -48,160 +50,163 @@ private lemma eval_homeomorph_subtype_of_symm_val
   subst x
   exact fun _ ↦ by simp only [Subtype.coe_eta, φ.apply_symm_apply]
 
-lemma ici_glue_real_map_eval_right {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) (hUnion : A ∪ B = univ)
+lemma glue_iic_ici_map_eval_right {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) (hUnion : A ∪ B = univ)
     {x : X} (hInter : A ∩ B = {x})
-    (hφx : ↑(φ.symm ⟨0, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨0, self_mem_Iic⟩) = x)
+    (hφx : ↑(φ.symm ⟨z, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨z, self_mem_Iic⟩) = x)
     {t : X} (hB : t ∈ B) :
-    (ici_glue_real_map φ ψ hUnion) t = ψ ⟨t, hB⟩ := by
-  by_cases hA : t ∈ A <;> simp only [ici_glue_real_map, hA, ↓reduceDIte]
+    (glue_iic_ici_map φ ψ hUnion) t = ψ ⟨t, hB⟩ := by
+  by_cases hA : t ∈ A <;> simp only [glue_iic_ici_map, hA, ↓reduceDIte]
   · have : t = x := mem_singleton_iff.mp <| hInter ▸ mem_inter hA hB
     subst t
     rw [eval_homeomorph_subtype_of_symm_val hφx hA, eval_homeomorph_subtype_of_symm_val hψx hB]
 
-lemma ici_glue_real_map_continuousOn_left {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) (hUnion : A ∪ B = univ) :
-    ContinuousOn (ici_glue_real_map φ ψ hUnion) A := by
+lemma glue_iic_ici_map_continuousOn_left {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) (hUnion : A ∪ B = univ) :
+    ContinuousOn (glue_iic_ici_map φ ψ hUnion) A := by
   apply continuousOn_iff_continuous_restrict.mpr
-  have : A.restrict (ici_glue_real_map φ ψ hUnion) = fun a => (φ a).val := by
+  have : A.restrict (glue_iic_ici_map φ ψ hUnion) = fun a => (φ a).val := by
     ext x
     simp only [restrict_apply]
-    exact ici_glue_real_map_eval_left φ ψ hUnion (Subtype.coe_prop x)
+    exact glue_iic_ici_map_eval_left φ ψ hUnion (Subtype.coe_prop x)
   exact this ▸ Continuous.subtype_val φ.continuous
 
-lemma ici_glue_real_map_continuousOn_right {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) (hUnion : A ∪ B = univ)
+lemma glue_iic_ici_map_continuousOn_right {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) (hUnion : A ∪ B = univ)
     {x : X} (hInter : A ∩ B = {x})
-    (hφx : ↑(φ.symm ⟨0, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨0, self_mem_Iic⟩) = x) :
-    ContinuousOn (ici_glue_real_map φ ψ hUnion) B := by
+    (hφx : ↑(φ.symm ⟨z, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨z, self_mem_Iic⟩) = x) :
+    ContinuousOn (glue_iic_ici_map φ ψ hUnion) B := by
   apply continuousOn_iff_continuous_restrict.mpr
-  have : B.restrict (ici_glue_real_map φ ψ hUnion) = fun b => (ψ b).val := by
+  have : B.restrict (glue_iic_ici_map φ ψ hUnion) = fun b => (ψ b).val := by
     ext x
     simp only [restrict_apply]
-    exact ici_glue_real_map_eval_right φ ψ hUnion hInter hφx hψx (Subtype.coe_prop x)
+    exact glue_iic_ici_map_eval_right φ ψ hUnion hInter hφx hψx (Subtype.coe_prop x)
   exact this ▸ Continuous.subtype_val ψ.continuous
 
-lemma ici_glue_real_map_continuous {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) (hUnion : A ∪ B = univ)
+lemma glue_iic_ici_map_continuous {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) (hUnion : A ∪ B = univ)
     {x : X} (hInter : A ∩ B = {x})
-    (hφx : ↑(φ.symm ⟨0, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨0, self_mem_Iic⟩) = x)
+    (hφx : ↑(φ.symm ⟨z, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨z, self_mem_Iic⟩) = x)
     (hAClosed : IsClosed A) (hBClosed : IsClosed B) :
-    Continuous (ici_glue_real_map φ ψ hUnion) := by
+    Continuous (glue_iic_ici_map φ ψ hUnion) := by
   apply continuousOn_univ.mp
   exact hUnion ▸ (continuousOn_union_iff_of_isClosed hAClosed hBClosed).mpr
-    ⟨ici_glue_real_map_continuousOn_left φ ψ hUnion,
-     ici_glue_real_map_continuousOn_right φ ψ hUnion hInter hφx hψx⟩
+    ⟨glue_iic_ici_map_continuousOn_left φ ψ hUnion,
+     glue_iic_ici_map_continuousOn_right φ ψ hUnion hInter hφx hψx⟩
 
-noncomputable def ici_glue_real_symm {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) : ℝ → X :=
-  fun t => if h : t ≤ 0 then φ.symm ⟨t, h⟩ else ψ.symm ⟨t, le_of_not_ge h⟩
+noncomputable def glue_iic_ici_symm {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) : α → X :=
+  fun t => if h : t ≤ z then φ.symm ⟨t, h⟩ else ψ.symm ⟨t, le_of_not_ge h⟩
 
-lemma ici_glue_real_symm_eval_left {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ))
-    {t : ℝ} (hA : t ∈ Iic (0 : ℝ)) :
-    (ici_glue_real_symm φ ψ) t = φ.symm ⟨t, hA⟩ := by
-  simp only [ici_glue_real_symm, mem_Iic.mp hA, ↓reduceDIte]
+lemma glue_iic_ici_symm_eval_left {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z)
+    {t : α} (hA : t ∈ Iic z) :
+    (glue_iic_ici_symm φ ψ) t = φ.symm ⟨t, hA⟩ := by
+  simp only [glue_iic_ici_symm, mem_Iic.mp hA, ↓reduceDIte]
 
-lemma ici_glue_real_symm_eval_right {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) {x : X}
-    (hφx : ↑(φ.symm ⟨0, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨0, self_mem_Iic⟩) = x)
-    {t : ℝ} (hB : t ∈ Ici (0 : ℝ)) :
-    (ici_glue_real_symm φ ψ) t = ψ.symm ⟨t, hB⟩ := by
-  by_cases hA : t ≤ 0 <;> simp only [ici_glue_real_symm, hA, ↓reduceDIte]
-  · have : t = 0 := eq_of_le_of_ge hA (mem_Ici.mp hB)
+lemma glue_iic_ici_symm_eval_right {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) {x : X}
+    (hφx : ↑(φ.symm ⟨z, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨z, self_mem_Iic⟩) = x)
+    {t : α} (hB : t ∈ Ici z) :
+    (glue_iic_ici_symm φ ψ) t = ψ.symm ⟨t, hB⟩ := by
+  by_cases hA : t ≤ z <;> simp only [glue_iic_ici_symm, hA, ↓reduceDIte]
+  · have : t = z := eq_of_le_of_ge hA (mem_Ici.mp hB)
     subst t
     rw [hφx, hψx]
 
-lemma ici_glue_real_symm_continuousOn_left {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) :
-    ContinuousOn (ici_glue_real_symm φ ψ) (Iic (0 : ℝ)) := by
+lemma glue_iic_ici_symm_continuousOn_left {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) :
+    ContinuousOn (glue_iic_ici_symm φ ψ) (Iic z) := by
   apply continuousOn_iff_continuous_restrict.mpr
-  have : (Iic (0 : ℝ)).restrict (ici_glue_real_symm φ ψ) = fun t => (φ.symm t).val := by
+  have : (Iic z).restrict (glue_iic_ici_symm φ ψ) = fun t => (φ.symm t).val := by
     ext t
-    rw [restrict_apply, ici_glue_real_symm_eval_left φ ψ (Subtype.coe_prop t)]
+    rw [restrict_apply, glue_iic_ici_symm_eval_left φ ψ (Subtype.coe_prop t)]
   exact this ▸ Continuous.subtype_val φ.symm.continuous
 
-lemma ici_glue_real_symm_continuousOn_right {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) {x : X}
-    (hφx : ↑(φ.symm ⟨0, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨0, self_mem_Iic⟩) = x) :
-    ContinuousOn (ici_glue_real_symm φ ψ) (Ici (0 : ℝ)) := by
+lemma glue_iic_ici_symm_continuousOn_right {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) {x : X}
+    (hφx : ↑(φ.symm ⟨z, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨z, self_mem_Iic⟩) = x) :
+    ContinuousOn (glue_iic_ici_symm φ ψ) (Ici z) := by
   apply continuousOn_iff_continuous_restrict.mpr
-  have : (Ici (0 : ℝ)).restrict (ici_glue_real_symm φ ψ) = fun t => (ψ.symm t).val := by
+  have : (Ici z).restrict (glue_iic_ici_symm φ ψ) = fun t => (ψ.symm t).val := by
     ext t
     simp only [restrict_apply]
-    exact ici_glue_real_symm_eval_right φ ψ hφx hψx (Subtype.coe_prop t)
+    exact glue_iic_ici_symm_eval_right φ ψ hφx hψx (Subtype.coe_prop t)
   exact this ▸ Continuous.subtype_val ψ.symm.continuous
 
-lemma ici_glue_real_symm_continuous {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) {x : X}
-    (hφx : ↑(φ.symm ⟨0, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨0, self_mem_Iic⟩) = x) :
-    Continuous (ici_glue_real_symm φ ψ) := by
+lemma glue_iic_ici_symm_continuous {X : Type*} [TopologicalSpace X]
+    [ClosedIciTopology α] [ClosedIicTopology α]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) {x : X}
+    (hφx : ↑(φ.symm ⟨z, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨z, self_mem_Iic⟩) = x) :
+    Continuous (glue_iic_ici_symm φ ψ) := by
   apply continuousOn_univ.mp
-  rw [← Iic_union_Ici (a := 0)]
+  rw [← Iic_union_Ici (a := z)]
   exact (continuousOn_union_iff_of_isClosed isClosed_Iic isClosed_Ici).mpr
-    ⟨ici_glue_real_symm_continuousOn_left φ ψ,
-     ici_glue_real_symm_continuousOn_right φ ψ hφx hψx⟩
+    ⟨glue_iic_ici_symm_continuousOn_left φ ψ,
+     glue_iic_ici_symm_continuousOn_right φ ψ hφx hψx⟩
 
-lemma ici_glue_real_left_inverse {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) {x : X}
+lemma glue_iic_ici_left_inverse {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) {x : X}
     (hUnion : A ∪ B = univ) (hInter : A ∩ B = {x})
-    (hφx : ↑(φ.symm ⟨0, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨0, self_mem_Iic⟩) = x) :
-    LeftInverse (ici_glue_real_symm φ ψ) (ici_glue_real_map φ ψ hUnion) := by
+    (hφx : ↑(φ.symm ⟨z, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨z, self_mem_Iic⟩) = x) :
+    LeftInverse (glue_iic_ici_symm φ ψ) (glue_iic_ici_map φ ψ hUnion) := by
   intro t
   by_cases ht : t ∈ A
-  · rw [ici_glue_real_map_eval_left φ ψ hUnion ht,
-        ici_glue_real_symm_eval_left φ ψ <| Subtype.coe_prop (φ ⟨t, ht⟩)]
+  · rw [glue_iic_ici_map_eval_left φ ψ hUnion ht,
+        glue_iic_ici_symm_eval_left φ ψ <| Subtype.coe_prop (φ ⟨t, ht⟩)]
     simp only [Subtype.coe_eta, φ.symm_apply_apply]
   · have ht' : t ∈ B := mem_union_and_not_mem_left hUnion ht
-    have : ↑(ψ ⟨t, ht'⟩) ∈ Ici (0 : ℝ) := Subtype.coe_prop (ψ ⟨t, ht'⟩)
-    rw [ici_glue_real_map_eval_right φ ψ hUnion hInter hφx hψx ht',
-        ici_glue_real_symm_eval_right φ ψ hφx hψx this]
+    have : ↑(ψ ⟨t, ht'⟩) ∈ Ici z := Subtype.coe_prop (ψ ⟨t, ht'⟩)
+    rw [glue_iic_ici_map_eval_right φ ψ hUnion hInter hφx hψx ht',
+        glue_iic_ici_symm_eval_right φ ψ hφx hψx this]
     simp only [Subtype.coe_eta, ψ.symm_apply_apply]
 
-lemma ici_glue_real_right_inverse {X : Type*} [TopologicalSpace X]
-    {A B : Set X} [∀ t : X, Decidable (t ∈ A)]
-    (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) {x : X}
+lemma glue_iic_ici_right_inverse {X : Type*} [TopologicalSpace X]
+    {A B : Set X} [∀ t : X, Decidable (t ∈ A)] {z : α}
+    (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) {x : X}
     (hUnion : A ∪ B = univ) (hInter : A ∩ B = {x})
-    (hφx : ↑(φ.symm ⟨0, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨0, self_mem_Iic⟩) = x) :
-    RightInverse (ici_glue_real_symm φ ψ) (ici_glue_real_map φ ψ hUnion) := by
+    (hφx : ↑(φ.symm ⟨z, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨z, self_mem_Iic⟩) = x) :
+    RightInverse (glue_iic_ici_symm φ ψ) (glue_iic_ici_map φ ψ hUnion) := by
   intro t
-  by_cases ht : t ∈ Iic (0 : ℝ)
-  · rw [ici_glue_real_symm_eval_left φ ψ ht,
-        ici_glue_real_map_eval_left φ ψ hUnion <| Subtype.coe_prop (φ.symm ⟨t, ht⟩)]
+  by_cases ht : t ∈ Iic z
+  · rw [glue_iic_ici_symm_eval_left φ ψ ht,
+        glue_iic_ici_map_eval_left φ ψ hUnion <| Subtype.coe_prop (φ.symm ⟨t, ht⟩)]
     simp only [Subtype.coe_eta, φ.apply_symm_apply]
-  · have ht' : t ∈ Ici 0 := mem_Ici.mpr <| Std.le_of_not_ge ht
+  · have ht' : t ∈ Ici z := mem_Ici.mpr <| Std.le_of_not_ge ht
     have : ↑(ψ.symm ⟨t, ht'⟩) ∈ B := Subtype.coe_prop (ψ.symm ⟨t, ht'⟩)
-    rw [ici_glue_real_symm_eval_right φ ψ hφx hψx ht',
-        ici_glue_real_map_eval_right φ ψ hUnion hInter hφx hψx this]
+    rw [glue_iic_ici_symm_eval_right φ ψ hφx hψx ht',
+        glue_iic_ici_map_eval_right φ ψ hUnion hInter hφx hψx this]
     simp only [Subtype.coe_eta, ψ.apply_symm_apply]
 
-/- A union of two closed sets homeomorphic to (-∞,0] and to [0,∞), intersecting
-   only at the zero point of either interval, is homeomorphic to ℝ. -/
-lemma glue_closed_intervals_real₀ {X : Type*} [TopologicalSpace X]
-    {A B : Set X} (φ : A ≃ₜ Iic (0 : ℝ)) (ψ : B ≃ₜ Ici (0 : ℝ)) {x : X}
+/- A union of two closed sets homeomorphic to the subsets (-∞, z] and [z, ∞)
+   in an ordered space, intersecting only at the endpoint of either interval,
+   is homeomorphic to the ordered space. -/
+lemma homeomorph_of_glue_closed_intervals {X : Type*} [TopologicalSpace X]
+    [ClosedIciTopology α] [ClosedIicTopology α]
+    {A B : Set X} {z : α} (φ : A ≃ₜ Iic z) (ψ : B ≃ₜ Ici z) {x : X}
     (hUnion : A ∪ B = univ) (hInter : A ∩ B = {x})
-    (hφx : ↑(φ.symm ⟨0, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨0, self_mem_Iic⟩) = x)
+    (hφx : ↑(φ.symm ⟨z, self_mem_Iic⟩) = x) (hψx : ↑(ψ.symm ⟨z, self_mem_Iic⟩) = x)
     (hAClosed : IsClosed A) (hBClosed : IsClosed B) :
-    Nonempty (X ≃ₜ ℝ) := by
+    Nonempty (X ≃ₜ α) := by
   classical -- need membership in A to be decidable
-  let ρ : X ≃ₜ ℝ := {
-    toFun : X → ℝ := ici_glue_real_map φ ψ hUnion,
-    invFun : ℝ → X := ici_glue_real_symm φ ψ,
-    left_inv := ici_glue_real_left_inverse φ ψ hUnion hInter hφx hψx,
-    right_inv := ici_glue_real_right_inverse φ ψ hUnion hInter hφx hψx,
-    continuous_toFun := ici_glue_real_map_continuous φ ψ hUnion hInter hφx hψx hAClosed hBClosed,
-    continuous_invFun := ici_glue_real_symm_continuous φ ψ hφx hψx
+  let ρ : X ≃ₜ α := {
+    toFun : X → α := glue_iic_ici_map φ ψ hUnion,
+    invFun : α → X := glue_iic_ici_symm φ ψ,
+    left_inv := glue_iic_ici_left_inverse φ ψ hUnion hInter hφx hψx,
+    right_inv := glue_iic_ici_right_inverse φ ψ hUnion hInter hφx hψx,
+    continuous_toFun := glue_iic_ici_map_continuous φ ψ hUnion hInter hφx hψx hAClosed hBClosed,
+    continuous_invFun := glue_iic_ici_symm_continuous φ ψ hφx hψx
   }
   exact Nonempty.intro ρ
 
@@ -210,8 +215,8 @@ private lemma homeo_symm {X : Type*} {Y : Type*} [TopologicalSpace X] [Topologic
     (hC : z ∈ C) (hα : (α ⟨z, hC⟩).val = y.val) : ↑(α.symm y) = z :=
   Subtype.coe_eq_iff.mpr ⟨hC, α.symm_apply_eq.mpr <| SetCoe.ext (Eq.symm hα)⟩
 
-/- A union of two closed sets homeomorphic to (-∞,c] and to [d,∞), intersecting
-   only at the endpoint of either interval, is homeomorphic to ℝ. -/
+/- A union of two closed sets homeomorphic to the subsets (-∞, c] and to [d, ∞)
+   in ℝ, intersecting only at their respective endpoints, is homeomorphic to ℝ. -/
 theorem homeomorph_real_of_glue_closed_iic_ici {X : Type*} [TopologicalSpace X]
     {A B : Set X} {c d : ℝ} (φ : A ≃ₜ Iic c) (ψ : B ≃ₜ Ici d)
     (hUnion : A ∪ B = univ) {x : X} (hInter : A ∩ B = {x})
@@ -227,10 +232,10 @@ theorem homeomorph_real_of_glue_closed_iic_ici {X : Type*} [TopologicalSpace X]
       eval_homeomorph_subtype_of_symm_val hφx hxA, iicHomeo_iic0_eval,
       eval_homeomorph_subtype_of_symm_val hψx hxB, iciHomeo_ici0_eval,
       sub_self, true_and]
-  exact glue_closed_intervals_real₀ φ' ψ' hUnion hInter
+  exact homeomorph_of_glue_closed_intervals φ' ψ' hUnion hInter
         (homeo_symm hxA hφ'x) (homeo_symm hxB hψ'x) hA hB
 
-end RealGlueIci
+end RealGlueIicIci
 
 /- Let X be a Hausdorff space covered by two open sets U ≃ₜ ℝ and V ≃ₜ ℝ, with
    U ∩ V connected.  Then X ≃ₜ ℝ. -/
