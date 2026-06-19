@@ -15,6 +15,36 @@ set_option linter.style.emptyLine false
 variable (M : Type*)
   [TopologicalSpace M] [SecondCountableTopology M] [T2Space M] [ChartedSpace ℝ¹ M]
 
+/- If the sets U i have property p for all i : ι, then every member of the set
+   {U i | i : ι} also has property p. -/
+private lemma prop_forall_mem {X ι : Type*} {U : ι → Set X} {p : Set X → Prop} :
+    (∀ i, p (U i)) → (∀ Ω ∈ {U i | i : ι}, p Ω) := by
+  intro hpU _ hΩ
+  obtain ⟨x, hx⟩ := mem_range.mp hΩ
+  exact hx ▸ hpU x
+
+/- An open, connected subset of a set homeomorphic to ℝ is homeomorphic to ℝ. -/
+lemma real_homeomorph_of_open_connected_subset_of_real_homeomorph {X : Type*}
+    [TopologicalSpace X] {s t : Set X} (hst : s ⊆ t)
+    (hsOpen : IsOpen s) (hsConn : IsConnected s) (htReal : Nonempty (t ≃ₜ ℝ)) :
+    Nonempty (s ≃ₜ ℝ) := by
+  have hMapsTo (x : X) : x ∈ s → x ∈ t := fun h => mem_of_subset_of_mem hst h
+  let j : {x // x ∈ s} → {x // x ∈ t} := Subtype.map id hMapsTo
+  have hj : IsOpenEmbedding j := by
+    apply IsOpenEmbedding.of_continuous_injective_isOpenMap
+    · exact Continuous.subtype_map continuous_id hMapsTo
+    · exact Subtype.map_injective hMapsTo injective_id
+    · exact IsOpenMap.id.subtype_map hsOpen hMapsTo
+  have hjConn: IsConnected (range j) := by
+    haveI := isConnected_iff_connectedSpace.mp hsConn
+    exact isConnected_range <| Continuous.subtype_map continuous_id' hMapsTo
+  let φ : t ≃ₜ ℝ := htReal.some
+  let Y := φ '' (range j)
+  have hYOpen : IsOpen Y := φ.isOpen_image.mpr hj.isOpenMap.isOpen_range
+  have hYConn : IsConnected Y := φ.isConnected_image.mpr hjConn
+  have α : Y ≃ₜ ℝ := (OpenIntervalHomeomorphReal.homeomorph_open_real hYOpen hYConn).some
+  exact Nonempty.intro <| hj.toIsEmbedding.toHomeomorph.trans <| (φ.image <| range j).trans α
+
 /- A 1-manifold M admits a covering by precompact open sets homeomorphic to ℝ
    such that no proper subset of the cover is a cover of M. -/
 lemma minimal_real_cover : ∃ (C : Set (Set M)),
@@ -22,42 +52,21 @@ lemma minimal_real_cover : ∃ (C : Set (Set M)),
     (∀ s ∈ C, IsCompact (closure s)) ∧ (∀ C' ⊂ C, ⋃₀ C' ≠ univ) := by
   obtain ⟨U, hUmem, hUOpen, hUReal, hUPrecompact⟩ := real_charts M
   let C₀ := {U x | x : M}
-  have hC₀Prop {p : Set M → Prop} : (∀ x : M, p (U x)) → (∀ Ω ∈ C₀, p Ω) := by
-    intro hWp _ hΩ
-    obtain ⟨x, hx⟩ := mem_range.mp hΩ
-    exact hx ▸ hWp x
-  have hC₀Open : ∀ s ∈ C₀, IsOpen s := hC₀Prop hUOpen
-  have hC₀Real : ∀ s ∈ C₀, Nonempty (s ≃ₜ ℝ) := hC₀Prop hUReal
-  have hC₀Precompact : ∀ s ∈ C₀, IsCompact (closure s) := hC₀Prop hUPrecompact
-  have hC₀Cover : ⋃₀ C₀ = univ := by
-    apply univ_subset_iff.mp
+  obtain ⟨C, hCOpen, hCCover, hCConn, hCMinimal, hCRefinement⟩ := by
+    haveI : LocallyConnectedSpace M := ChartedSpace.locallyConnectedSpace ℝ¹ M
+    haveI : LocallyCompactSpace M := ChartedSpace.locallyCompactSpace ℝ¹ M
+    apply minimal_connected_refinement (prop_forall_mem hUOpen) (univ_subset_iff.mp ?_)
     exact fun x _ => mem_sUnion.mpr ⟨U x, mem_setOf.mpr ⟨x, rfl⟩, hUmem x⟩
-  haveI : LocallyConnectedSpace M := ChartedSpace.locallyConnectedSpace ℝ¹ M
-  haveI : LocallyCompactSpace M := ChartedSpace.locallyCompactSpace ℝ¹ M
-  obtain ⟨C, hCOpen, hCCover, hCConn, hCMinimal, hCRefinement⟩ :=
-    minimal_connected_refinement hC₀Open hC₀Cover
   have hCReal : ∀ s ∈ C, Nonempty (s ≃ₜ ℝ) := by
     intro s hs
     obtain ⟨t, htC₀, hst⟩ := hCRefinement s hs
-    let φ : t ≃ₜ ℝ := (hC₀Real t htC₀).some
-    have hMapsTo (x : M) : x ∈ s → x ∈ t := fun hx => mem_of_subset_of_mem hst hx
-    let j : {x // x ∈ s} → {x // x ∈ t} := Subtype.map id hMapsTo
-    have hj : IsOpenEmbedding j := by
-      apply IsOpenEmbedding.of_continuous_injective_isOpenMap
-      · exact Continuous.subtype_map continuous_id hMapsTo
-      · exact Subtype.map_injective hMapsTo fun _ _ t ↦ t
-      · exact IsOpenMap.subtype_map IsOpenMap.id (hCOpen s hs) hMapsTo
-    have hjConn: IsConnected (range j) := by
-      have := isConnected_iff_connectedSpace.mp (hCConn s hs)
-      exact isConnected_range <| Continuous.subtype_map continuous_id' hMapsTo
-    let X := φ '' (range j)
-    have hXOpen : IsOpen X := φ.isOpen_image.mpr hj.isOpenMap.isOpen_range
-    have hXConn : IsConnected X := φ.isConnected_image.mpr hjConn
-    have α : X ≃ₜ ℝ := (OpenIntervalHomeomorphReal.homeomorph_open_real hXOpen hXConn).some
-    exact Nonempty.intro <| hj.toIsEmbedding.toHomeomorph.trans <| (φ.image <| range j).trans α
+    have hC₀Real : ∀ s ∈ C₀, Nonempty (s ≃ₜ ℝ) := prop_forall_mem hUReal
+    exact real_homeomorph_of_open_connected_subset_of_real_homeomorph
+          hst (hCOpen s hs) (hCConn s hs) (hC₀Real t htC₀)
   have hCPrecompact : ∀ s ∈ C, IsCompact (closure s) := by
     intro s hs
     obtain ⟨t, htC₀, hst⟩ := hCRefinement s hs
+    have hC₀Precompact : ∀ s ∈ C₀, IsCompact (closure s) := prop_forall_mem hUPrecompact
     exact (hC₀Precompact t htC₀).of_isClosed_subset isClosed_closure (closure_mono hst)
   use C
 
@@ -87,6 +96,37 @@ lemma real_homeomorph_of_finite_connected_union_of_real_homeomorphs {X : Type*}
   · exact hR
   · exact False.elim <| hNotCompact hS.some.symm.compactSpace
 
+lemma iUnion_of_partial_iUnion_of_enumeration {X : Type*} {C : Set (Set X)}
+    (f : ℕ ≃ C) : ⋃ n : ℕ, (⋃ i ≤ n, f i) = ⋃₀ C := by
+  apply Subset.antisymm
+  · simp only [iUnion_subset_iff]
+    exact fun _ i _ _ h => mem_sUnion.mpr ⟨f i, Subtype.coe_prop (f i), h⟩
+  · refine sUnion_subset ?_
+    intro s hs x hx
+    let i := f.symm ⟨s, hs⟩
+    refine mem_iUnion₂.mpr ⟨i, i, mem_iUnion_of_mem (le_refl i) ?_⟩
+    simpa only [i, f.apply_symm_apply]
+
+/- Given an enumeration `f : ℕ → C` of a minimal cover `C` of `X`, the
+   sequence of sets `⋃ i ≤ n, f i` is strictly increasing with `n`. -/
+lemma strictMono_partial_iUnion_of_enumeration {X : Type*} {C : Set (Set X)}
+    (f : ℕ ≃ C) (hC : ⋃₀ C = univ) (hMinimal : ∀ C' ⊂ C, ⋃₀ C' ≠ univ) :
+    ∀ n : ℕ, (⋃ i ≤ n, f i) ⊂ (⋃ i ≤ n + 1, f i : Set X) := by
+  intro n
+  refine Set.ssubset_iff_subset_ne.mpr ⟨?_, ?_⟩
+  · apply biUnion_subset_biUnion_left
+    exact fun t ht => Nat.le_add_right_of_le ht
+  · obtain ⟨p, hp⟩ := minimal_cover_choose_points hC hMinimal
+    obtain ⟨hpfnMem_f, hpnUnique⟩ := hp (f (n + 1))
+    have hpfnMem_V : p (f (n + 1)) ∈ ⋃ i ≤ n + 1, f i := by
+      apply mem_of_subset_of_mem ?_ hpfnMem_f
+      exact fun y hy => mem_iUnion₂.mpr ⟨n + 1, le_refl (n + 1), hy⟩
+    refine Ne.symm <| ne_of_mem_of_not_mem' hpfnMem_V ?_
+    by_contra h -- need to show: p (f (n + 1)) ∉ V n
+    obtain ⟨k, hkn, hpfMem_fk⟩ := mem_iUnion₂.mp h
+    apply (lt_self_iff_false n).mp <| lt_of_lt_of_le (lt_add_one n) ?_
+    exact le_of_eq_of_le (f.injective <| hpnUnique (f k) hpfMem_fk) hkn
+
 /- A 1-manifold with an infinite minimal cover by open copies of ℝ admits an
    exhaustion by open sets homeomorphic to ℝ. -/
 omit [ChartedSpace ℝ¹ M] in
@@ -105,16 +145,7 @@ lemma exhaustion_of_one_manifold [ConnectedSpace M] {C : Set (Set M)}
     exact hConnUnivU.image Subtype.val continuous_subtype_val.continuousOn
   obtain ⟨f, hf⟩ := connected_enumeration_of_minimal_open_cover hC hInf hOpen hConn hMinimal
   let V : ℕ → Set M := fun n => ⋃ i ≤ n, f i
-  have hVCover : ⋃ n, V n = univ := by
-    apply univ_subset_iff.mp
-    intro x hx
-    apply mem_iUnion.mpr
-    obtain ⟨U, hUC, hxU⟩ : ∃ U ∈ C, x ∈ U := mem_sUnion.mp (by rwa [hC])
-    let n := f.symm ⟨U, hUC⟩
-    use n
-    apply mem_iUnion.mpr
-    simp only [mem_iUnion, exists_prop]
-    exact ⟨n, le_refl n, by simpa only [n, f.apply_symm_apply]⟩
+  have hVCover : ⋃ n, V n = univ := hC ▸ iUnion_of_partial_iUnion_of_enumeration f
   have hVOpen : ∀ n, IsOpen (V n) :=
     fun n => isOpen_biUnion fun i _ => hOpen (f i).val (f i).property
   have hVReal : ∀ n, Nonempty (V n ≃ₜ ℝ) :=
@@ -127,23 +158,53 @@ lemma exhaustion_of_one_manifold [ConnectedSpace M] {C : Set (Set M)}
     rw [closure_iUnion₂_le_nat (fun i => (f i).val)]
     apply Finite.isCompact_biUnion (finite_le_nat n) ?_
     exact fun i _ => hPrecompact (f i).val (Subtype.coe_prop (f i))
-  have hVSsubset : ∀ n, V n ⊂ V (n + 1) := by
-    intro n
-    refine Set.ssubset_iff_subset_ne.mpr ⟨?_, ?_⟩
-    · apply biUnion_subset_biUnion_left
-      exact fun t ht => Nat.le_add_right_of_le ht
-    · obtain ⟨p, hp⟩ := minimal_cover_choose_points hC hMinimal
-      obtain ⟨hpfnMem_f, hpnUnique⟩ := hp (f (n + 1))
-      have hpfnMem_V : p (f (n + 1)) ∈ V (n + 1) := by
-        apply mem_of_subset_of_mem ?_ hpfnMem_f
-        exact fun y hy => mem_iUnion₂.mpr ⟨n + 1, le_refl (n + 1), hy⟩
-      refine Ne.symm <| ne_of_mem_of_not_mem' hpfnMem_V ?_
-      by_contra h -- need to show: p (f (n + 1)) ∉ V n
-      obtain ⟨k, hkn, hpfMem_fk⟩ := mem_iUnion₂.mp h
-      have h_succn_k := f.injective <| hpnUnique (f k) hpfMem_fk
-      exact (lt_self_iff_false n).mp
-        <| lt_of_lt_of_le (lt_add_one n) (le_of_eq_of_le h_succn_k hkn)
-  exact ⟨V, hVCover, hVOpen, hVReal, hVPrecompact, hVSsubset⟩
+  exact ⟨V, hVCover, hVOpen, hVReal, hVPrecompact,
+         strictMono_partial_iUnion_of_enumeration f hC hMinimal⟩
+
+lemma strictMono_forall_lt {X : Type*} [TopologicalSpace X]
+    {V : ℕ → Set X} (hStrictMono : ∀ n, V n ⊂ V (n + 1)) :
+    ∀ m n : ℕ, m < n → V m ⊂ V n := by
+  let r : ℕ → ℕ → Prop := fun m n => V m ⊂ V n
+  haveI : IsTrans ℕ r := { trans _ _ _ := ssubset_trans }
+  exact fun m n hmn => Nat.rel_of_forall_rel_succ_of_lt r hStrictMono hmn
+
+lemma monotone_forall_le {X : Type*} [TopologicalSpace X]
+    {V : ℕ → Set X} (hStrictMono : ∀ n, V n ⊂ V (n + 1)) :
+    ∀ m n : ℕ, m ≤ n → V m ⊆ V n := by
+  intro m n hmn
+  rcases lt_or_eq_of_le hmn with hlt | heq
+  · exact subset_of_ssubset <| (strictMono_forall_lt hStrictMono) m n hlt
+  · subst m; exact subset_refl _
+
+lemma closure_subset_succ_of_strictMono_opens {X : Type*} [TopologicalSpace X]
+    {V : ℕ → Set X} (hCover : ⋃ n, V n = univ) (hOpen : ∀ n, IsOpen (V n))
+    (hCompact : ∀ n, IsCompact (closure (V n))) (hStrictMono : ∀ n, V n ⊂ V (n + 1))
+    (hNonempty : Nonempty (V 0)) :
+    ∀ n, ∃ m > n, closure (V n) ⊆ V m := by
+  have hMono : ∀ m n : ℕ, m ≤ n → V m ⊆ V n := monotone_forall_le hStrictMono
+  intro n
+  obtain ⟨t, ht⟩ := (hCompact n).elim_finite_subcover V hOpen
+    <| subset_trans (by apply subset_univ) (univ_subset_iff.mpr hCover)
+  have htNonempty : t.Nonempty := by
+    by_contra! htEmpty
+    rw [htEmpty, biUnion_empty_finset] at ht
+    let x : V 0 := hNonempty.some
+    exact (mem_empty_iff_false ↑x).mp -- x ∈ V 0 ⊆ V n ⊆ closure (V n) ⊆ ∅
+      <| mem_of_subset_of_mem (subset_trans subset_closure ht)
+      <| mem_of_subset_of_mem (hMono 0 n (Nat.zero_le n)) (Subtype.coe_prop x)
+  let m := Finset.max' t htNonempty
+  have : ⋃ i ∈ t, V i = V m := by
+    apply Subset.antisymm <;> subst m
+    · exact iUnion₂_subset <| fun i hi => hMono i _ (Finset.le_max' t i hi)
+    · exact subset_biUnion_of_mem <| Finset.max'_mem t htNonempty
+  rw [this] at ht
+  refine ⟨m + 1, ?_, ?_⟩
+  · by_contra h
+    have h₁ : V n ⊆ V m := subset_trans subset_closure ht
+    have h₂ : V m ⊂ V n := strictMono_forall_lt hStrictMono m n
+      <| Nat.lt_of_succ_le <| Nat.le_of_not_lt h
+    exact (ssubset_irrefl (V n)) (ssubset_of_subset_of_ssubset h₁ h₂)
+  · exact subset_of_ssubset <| ssubset_of_subset_of_ssubset ht (hStrictMono m)
 
 /- If X is covered by a strictly increasing sequence of nonempty open sets
    V : ℕ → Set X, and if each V n has compact closure, then we can find an open
@@ -154,62 +215,28 @@ lemma open_exhaustion_of_iUnion_of_strictMono_of_precompact {X : Type*} [Topolog
     (hCompact : ∀ n, IsCompact (closure (V n))) (hStrictMono : ∀ n, V n ⊂ V (n + 1))
     (hNonempty : Nonempty (V 0)) :
   ∃ U : ℕ → Set X, ((⋃ n, U n = univ) ∧ (∀ n, IsOpen (U n)) ∧ (∀ n, IsCompact (closure (U n)))
-    ∧ (∀ n, closure (U n) ⊆ U (n + 1)) ∧ Nonempty (U 0)
-    ∧ (∀ n, ∃ m, U n = V m)) := by
-  have hInc' : ∀ m n : ℕ, m < n → V m ⊂ V n := by
-    let r : ℕ → ℕ → Prop := fun m n => V m ⊂ V n
-    have : IsTrans ℕ r := { trans _ _ _ := ssubset_trans }
-    exact fun m n hmn => Nat.rel_of_forall_rel_succ_of_lt r hStrictMono hmn
-  have hInc'' : ∀ m n : ℕ, m ≤ n → V m ⊆ V n := by
-    intro m n hmn
-    rcases lt_or_eq_of_le hmn with hlt | heq
-    · exact subset_of_ssubset <| hInc' m n hlt
-    · subst m; rfl
-  have hClosure_subset : ∀ n, ∃ m > n, closure (V n) ⊆ V m := by
-    intro n
-    obtain ⟨t, ht⟩ := (hCompact n).elim_finite_subcover V hOpen
-      <| subset_trans (by apply subset_univ) (univ_subset_iff.mpr hCover)
-    have htNonempty : t.Nonempty := by
-      by_contra! htEmpty
-      rw [htEmpty, biUnion_empty_finset] at ht
-      let x : V 0 := hNonempty.some
-      exact (mem_empty_iff_false ↑x).mp -- x ∈ V 0 ⊆ V n ⊆ closure (V n) ⊆ ∅
-        <| mem_of_subset_of_mem (subset_trans subset_closure ht)
-        <| mem_of_subset_of_mem (hInc'' 0 n (Nat.zero_le n)) (Subtype.coe_prop x)
-    let m := Finset.max' t htNonempty
-    have : ⋃ i ∈ t, V i = V m := by
-      apply Subset.antisymm <;> subst m
-      · exact iUnion₂_subset <| fun i hi => hInc'' i _ (Finset.le_max' t i hi)
-      · exact subset_biUnion_of_mem <| Finset.max'_mem t htNonempty
-    rw [this] at ht
-    use m + 1
-    constructor
-    · by_contra h
-      have h₁ : V n ⊆ V m := subset_trans subset_closure ht
-      have h₂ : V m ⊂ V n := hInc' m n <| Nat.lt_of_succ_le <| Nat.le_of_not_lt h
-      exact (ssubset_irrefl (V n)) (ssubset_of_subset_of_ssubset h₁ h₂)
-    · exact subset_of_ssubset <| ssubset_of_subset_of_ssubset ht (hStrictMono m)
-  classical -- need to know that the predicate of hClosure_ssubset is decidable
+    ∧ (∀ n, closure (U n) ⊆ U (n + 1)) ∧ Nonempty (U 0) ∧ (∀ n, ∃ m, U n = V m)) := by
+  have hClosure_subset : ∀ n, ∃ m > n, closure (V n) ⊆ V m :=
+    closure_subset_succ_of_strictMono_opens hCover hOpen hCompact hStrictMono hNonempty
+  classical -- need to know that the predicate of hClosure_subset is decidable
   let nextOpen : ℕ → ℕ := fun i => Nat.find (hClosure_subset i)
-  have nextGt (n : ℕ) : nextOpen n > n := (Nat.find_spec (hClosure_subset n)).1
-  have nextClosure (n : ℕ) : closure (V n) ⊆ V (nextOpen n) :=
-    (Nat.find_spec (hClosure_subset n)).2
+  obtain ⟨nextGt, nextClosure⟩ := forall_and.mp <| fun n => Nat.find_spec (hClosure_subset n)
   let j : ℕ → ℕ := fun n => Nat.iterate nextOpen n 0
   have hj_succ (n : ℕ) : j (n + 1) = nextOpen (j n) := iterate_succ_apply' nextOpen n 0
   have hj (n : ℕ) : j n ≥ n := by
     induction n with
     | zero => simp only [ge_iff_le, zero_le]
     | succ i hi =>
-      have : j (i + 1) ≥ (j i) + 1 := by
-        rw [hj_succ i]
-        exact Order.add_one_le_iff.mpr <| Nat.lt_of_succ_le (nextGt (j i))
+      have : j (i + 1) ≥ (j i) + 1 :=
+        hj_succ i ▸ (Order.add_one_le_iff.mpr <| Nat.lt_of_succ_le (nextGt (j i)))
       exact add_le_of_add_le_right this hi
   refine ⟨fun n => V (j n), ?_, fun n => hOpen (j n), fun n => hCompact (j n), ?_, ?_, ?_⟩
   · apply univ_subset_iff.mp
     intro x hx
     simp_rw [← hCover, mem_iUnion] at hx
     obtain ⟨i, hi⟩ := hx
-    exact mem_iUnion.mpr ⟨i, mem_of_subset_of_mem (hInc'' i (j i) (hj i)) hi⟩
+    apply mem_iUnion.mpr ⟨i, mem_of_subset_of_mem ?_ hi⟩
+    exact (monotone_forall_le hStrictMono) i (j i) (hj i)
   · simp only [hj_succ]
     exact fun n => nextClosure (j n)
   · simpa only [show j 0 = 0 by rfl]
@@ -237,8 +264,7 @@ theorem real_or_circle_of_one_manifold [ConnectedSpace M] :
     have hFiniteSubcover : ∃ t : Finset {s // s ∈ C}, univ ⊆ ⋃ i ∈ t, U i := by
       use univ.toFinset
       apply univ_subset_iff.mpr
-      simp_rw [← hC, toFinset_univ, Finset.mem_univ, iUnion_true, sUnion_eq_iUnion]
-      rfl
+      simp_rw [← hC, toFinset_univ, Finset.mem_univ, iUnion_true, sUnion_eq_iUnion, U]
     exact real_or_circle_of_finitely_covered_one_manifold M U
             (fun i => hCOpen (U i) (Subtype.coe_prop i))
             (fun i => hCReal (U i) (Subtype.coe_prop i))

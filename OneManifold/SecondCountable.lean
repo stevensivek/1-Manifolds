@@ -34,25 +34,19 @@ lemma countable_of_open_disjoint {ι : Type*} {U : ι → Set X} {s : Set ι}
     intro i
     obtain ⟨v, hv, _, hvU⟩ := hBasis.exists_subset_of_mem_open
                               (Subtype.coe_prop (hNE i).some) (hU i)
-    refine ⟨v, hv, hvU⟩
+    exact ⟨v, hv, hvU⟩
   obtain ⟨f, hf⟩ := Classical.axiomOfChoice bsub
-  let g : s → b := fun i => ⟨f i, (hf i).1⟩
-  have hfInjective : Injective f := by
-    intro i j hij
-    by_contra h
-    have hD : Disjoint (U i) (U j) := by
-      have := pairwiseDisjoint_iff.mp hDisjoint (Subtype.coe_prop i) (Subtype.coe_prop j)
-      have hNotNE : ¬ (U ↑i ∩ U ↑j).Nonempty := Not.imp (Subtype.coe_ne_coe.mpr h) this
-      refine Set.disjoint_iff.mpr ?_
-      exact subset_empty_iff.mpr <| not_nonempty_iff_eq_empty.mp hNotNE
-    have : ∅ ∈ b := by
-      rw [← subset_eq_empty (hD (hf i).2 (subset_of_eq_of_subset hij (hf j).2)) rfl]
-      exact (hf i).1
-    exact hbNE this
-  have : Injective g := by
-    apply Injective.of_comp (f := Subtype.val)
-    rwa [← show f = Subtype.val ∘ g by exact List.map_inj.mp rfl]
-  exact this.countable
+  obtain ⟨hfb, hfU⟩ := forall_and.mp hf
+  let g : s → b := fun i => ⟨f i, hfb i⟩
+  apply Injective.countable (f := g) <| Injective.of_comp (f := Subtype.val) ?_
+  rw [← show f = Subtype.val ∘ g by rfl]
+  -- new goal : Injective f
+  intro i j hij
+  have hfi_inter : f i ⊆ U i ∩ U j := subset_inter (hfU i) (hij ▸ hfU j)
+  have : (f i).Nonempty := nonempty_iff_ne_empty.mpr <| ne_of_mem_of_not_mem (hfb i) hbNE
+  have hU_inter : this.some ∈ U i ∩ U j := mem_of_subset_of_mem hfi_inter this.some_mem
+  exact SetCoe.ext <| pairwiseDisjoint_iff.mp hDisjoint
+    (Subtype.coe_prop i) (Subtype.coe_prop j) (nonempty_of_mem hU_inter)
 
 /- An open set can be written as the union of a pairwise disjoint collection
    of open, connected sets. -/
@@ -101,13 +95,10 @@ lemma pointFinite_connected_refinement_of_cover
       (∀ x : X, {s ∈ C' | x ∈ s}.Finite) ∧ (∀ s ∈ C', ∃ t ∈ C, s ⊆ t) := by
   let ι₀ := {U // U ∈ C}
   let U : ι₀ → Set X := fun U => U.val
-  have hUCover : ⋃ i, U i = univ := by
-    rw [← hC]
-    exact Eq.symm sUnion_eq_iUnion
-  have hUOpen : ∀ i, IsOpen (U i) := by exact fun i => hCOpen (U i) i.property
+  have hUCover : ⋃ i, U i = univ := hC ▸ Eq.symm sUnion_eq_iUnion
+  have hUOpen : ∀ i, IsOpen (U i) := fun i => hCOpen (U i) i.property
   haveI : SigmaCompactSpace X := sigmaCompactSpace_of_locallyCompact_secondCountable
-  haveI : ParacompactSpace X := by exact paracompact_of_locallyCompact_sigmaCompact
-
+  haveI : ParacompactSpace X := paracompact_of_locallyCompact_sigmaCompact
   obtain ⟨β, V, hVOpen, hVCover, hVLocallyFinite, hRefinement⟩ :=
     ParacompactSpace.locallyFinite_refinement ι₀ U hUOpen hUCover
   /- Note that this refinement of the open cover U may not be what we want:
@@ -119,21 +110,15 @@ lemma pointFinite_connected_refinement_of_cover
   let bSets := fun (b : β) => {compVb b c | c}
   let ι := Σ b : β, ConnectedComponents (V b)
   let W : ι → Set X := fun ⟨b, c⟩ => compVb b c
-  have hWV (i : ι) : W i ⊆ V i.fst := by
-    rw [← (hcompVb i.fst).2.2.2]
-    exact subset_iUnion_of_subset i.snd fun _ t => t
-
-  have hWOpen : ∀ i : ι, IsOpen (W i) := fun i => (hcompVb i.fst).1 i.snd
-  have hWConn : ∀ i : ι, IsConnected (W i) := fun i => (hcompVb i.fst).2.1 i.snd
+  have hWV (i : ι) : W i ⊆ V i.fst :=
+    (hcompVb i.fst).2.2.2 ▸ subset_iUnion_of_subset i.snd <| subset_refl (W i)
+  have hWOpen (i : ι) : IsOpen (W i) := (hcompVb i.fst).1 i.snd
+  have hWConn (i : ι) : IsConnected (W i) := (hcompVb i.fst).2.1 i.snd
   have hWCover : ⋃ i, W i = @univ X := by
-    ext x
-    constructor <;> intro hx
-    · exact mem_univ x
-    · have : x ∈ ⋃ b, V b := by rwa [hVCover]
-      obtain ⟨b, hb⟩ := mem_iUnion.mp this
-      obtain ⟨c, hc⟩ := mem_iUnion.mp (by rwa [← (hcompVb b).2.2.2] at hb)
-      apply mem_iUnion.mpr
-      use ⟨b, c⟩
+    apply univ_subset_iff.mp (fun x hx => ?_)
+    obtain ⟨b, hb⟩ := mem_iUnion.mp <| hVCover ▸ hx
+    obtain ⟨c, hc⟩ := mem_iUnion.mp (by rwa [← (hcompVb b).2.2.2] at hb)
+    exact mem_iUnion.mpr <| ⟨⟨b, c⟩, hc⟩
   have hWRefine : ∀ i : ι, ∃ t ∈ C, W i ⊆ t := by
     intro i
     obtain ⟨a, ha⟩ := hRefinement i.fst
@@ -166,15 +151,13 @@ lemma pointFinite_connected_refinement_of_cover
         exact mem_of_subset_of_mem (fun _ t ↦ t) hWy
       · rw [hcz] at hWz
         exact mem_of_subset_of_mem (fun _ t ↦ t) hWz
-    rw [hyz_empty] at this
-    exact (mem_empty_iff_false x).mp this
+    exact (mem_empty_iff_false x).mp <| hyz_empty ▸ this
 
   let C' : Set (Set X) := {W i | i : ι}
   have hC'Prop {p : Set X → Prop} : (∀ i : ι, p (W i)) → (∀ Ω ∈ C', p Ω) := by
     intro hWp _ hΩ
     obtain ⟨i, hi⟩ := mem_range.mp hΩ
-    rw [← hi]
-    exact hWp i
+    exact hi ▸ hWp i
   have hC'Finite : ∀ x : X, {s ∈ C' | x ∈ s}.Finite := by
     intro x
     let f : {i | x ∈ W i} → {s ∈ C' | x ∈ s} :=
@@ -183,8 +166,7 @@ lemma pointFinite_connected_refinement_of_cover
       intro s
       obtain ⟨hsc, hx⟩ := s.property
       obtain ⟨i, hi⟩ := mem_range.mp hsc
-      use ⟨i, by rwa [← hi] at hx⟩
-      exact SetCoe.ext hi
+      exact ⟨⟨i, by rwa [← hi] at hx⟩, SetCoe.ext hi⟩
     haveI : Finite {i | x ∈ W i} := finite_coe_iff.mpr (hW_point_finite x)
     exact finite_coe_iff.mp <| Finite.of_surjective f hf
   have hC'Cover : ⋃₀ C' = univ := eq_univ_of_subset (fun _ t ↦ t) hWCover
@@ -289,8 +271,7 @@ lemma minimal_connected_refinement
   have : PLFCover m := hmMinimal.prop
   unfold PLFCover at this
   obtain ⟨hmOpen, hmCover, hmFinite, hmConn⟩ := hmMinimal.prop
-  have hmRefinement : ∀ s ∈ m, ∃ t ∈ C₀, s ⊆ t := by
-    exact fun s hs => hC₁Refinement s (hmC₀ hs)
+  have hmRefinement : ∀ s ∈ m, ∃ t ∈ C₀, s ⊆ t := fun s hs => hC₁Refinement s (hmC₀ hs)
 
   have hssubset {s : Set (Set X)} : s ⊂ m → ⋃₀ s ≠ univ := by
     intro hsm
@@ -316,27 +297,25 @@ lemma notCompact_of_infinite_minimal_cover
   by_contra hCompact
   let ι := {U // U ∈ C}
   let U : ι → Set X := fun U => U.val
-  have hCover : univ ⊆ ⋃ i, U i := by
-    rw [← hC]
-    exact sUnion_subset <| fun t ht => subset_iUnion U ⟨t, ht⟩
+  have hCover : univ ⊆ ⋃ i, U i :=
+    hC ▸ sUnion_subset <| fun t ht => subset_iUnion U ⟨t, ht⟩
   obtain ⟨t, ht⟩ := hCompact.isCompact_univ.elim_finite_subcover
                     U (fun i => hOpen (U i) i.property) hCover
   let C' : Set (Set X) := {Subtype.val U | U ∈ t}
   have hFin' : C'.Finite := Finite.of_surjOn Subtype.val (fun _ a ↦ a) (finite_mem_finset t)
   have hC' : ⋃₀ C' = univ := by
-    apply univ_subset_iff.mp <| subset_trans ht <| iUnion_subset ?_
+    apply univ_subset_iff.mp <| subset_trans ht <| iUnion_subset_iff.mpr (fun i => ?_)
     simp only [iUnion_subset_iff]
-    intro Ω hΩ
-    apply subset_sUnion_of_subset C' (U Ω) (Subset.refl (U Ω)) <| mem_setOf.mpr ?_
-    use Ω
+    exact fun _ _ hx => subset_sUnion_of_subset C' (U i)
+      (Subset.refl (U i)) (mem_setOf.mpr <| by use i) hx
   have hSub : C' ⊆ C := by
     intro _ hs
-    obtain ⟨U, _, hUs⟩ := mem_setOf.mp hs
-    exact mem_of_eq_of_mem (Eq.symm hUs) (Subtype.coe_prop U)
+    obtain ⟨V, _, hVs⟩ := mem_setOf.mp hs
+    exact mem_of_eq_of_mem (Eq.symm hVs) (Subtype.coe_prop V)
   have hSsub : C' ⊂ C := by
     refine (ssubset_iff_of_subset hSub).mpr ?_
     by_contra! h
-    have : Finite C := finite_coe_iff.mpr <| Finite.subset hFin' <| subset_setOf.mpr h
+    haveI : Finite C := finite_coe_iff.mpr <| Finite.subset hFin' <| subset_setOf.mpr h
     exact not_finite C
   exact (hMinimal C' hSsub) hC'
 
@@ -355,11 +334,10 @@ lemma minimal_cover_choose_points {X : Type*} {C : Set (Set X)} (hC : ⋃₀ C =
     have hpΩ : ∀ Ω' ∈ C, p ∈ Ω' → Ω' = Ω := by
       intro Ω' hΩ' hp'
       have : Ω' ∉ C' := fun h => hp (mem_sUnion_of_mem hp' h)
-      have : Ω' ∈ C \ C' := by exact mem_diff_of_mem hΩ' this
+      have : Ω' ∈ C \ C' := mem_diff_of_mem hΩ' this
       rw [diff_diff_cancel_left <| singleton_subset_iff.mpr hΩ] at this
       exact mem_singleton_iff.mp this
-    have : p ∈ ⋃₀ C := by rw [hC]; exact mem_univ p
-    obtain ⟨ω, hωC, hpω⟩ := mem_sUnion.mp this
+    obtain ⟨ω, hωC, hpω⟩ := mem_sUnion.mp <| hC ▸ mem_univ p
     rw [hpΩ ω hωC hpω] at hpω
     exact ⟨hpω, hpΩ⟩
   obtain ⟨f, hf⟩ := Classical.axiom_of_choice hUniquePoint
@@ -378,13 +356,9 @@ lemma countable_of_minimal_open_cover {C : Set (Set X)} (hC : ⋃₀ C = univ)
       (hf U).1 (hOpen U.val U.property)
     use ⟨v, hvb⟩
   obtain ⟨g, hg⟩ := Classical.axiom_of_choice this
-  have hgInj : Injective g := by
-    intro U V hUV
-    apply (hf U).2 V
-    apply mem_of_subset_of_mem (hg V).2
-    rw [← hUV]
-    exact (hg U).1
-  have : Countable b := hbCountable
+  have hgInj : Injective g :=
+    fun U V hUV => (hf U).2 V <| mem_of_subset_of_mem (hg V).2 <| hUV ▸ (hg U).1
+  haveI : Countable b := hbCountable
   exact hgInj.countable
 
 /- Given an infinite open cover C of a connected space by connected sets
@@ -408,8 +382,7 @@ lemma exists_open_intersecting_finite_union [ConnectedSpace X]
     isOpen_sUnion <| fun t ht => hOpen t (hsub ht)
   have hCover : (⋃₀ C') ∪ (⋃₀ s) = univ := by
     simp_rw [← sUnion_union, ← hC, C']
-    apply congrArg sUnion
-    exact diff_union_of_subset hsub
+    exact congrArg sUnion <| diff_union_of_subset hsub
   have hsNE : Nonempty s := by
     obtain ⟨U, hUs, _⟩ := nonempty_sUnion.mp hs.nonempty
     exact Nonempty.intro <| codRestrict (fun x ↦ U) s (fun x ↦ hUs) X
@@ -431,9 +404,7 @@ lemma notInjective_of_eventually_bounded {f : ℕ → ℕ} {a b : ℕ} :
   intro hfBound
   have hFin : (f '' {k | k > a}).Finite := by
     apply Finite.subset (finite_le_nat b)
-    intro l ⟨k, hk, hjk⟩
-    rw [← hjk]
-    exact hfBound k (mem_setOf.mp hk)
+    exact fun l ⟨k, hk, hjk⟩ => hjk ▸ hfBound k (mem_setOf.mp hk)
   have hInf : {k | k > a}.Infinite := by
     apply infinite_iff_exists_gt.mpr
     exact fun i => ⟨i + a + 1, Nat.le_add_left (a + 1) i,
@@ -441,7 +412,7 @@ lemma notInjective_of_eventually_bounded {f : ℕ → ℕ} {a b : ℕ} :
   have hNotInjOn := Set.not_injOn_infinite_finite_image hInf hFin
   unfold InjOn at hNotInjOn
   push Not at hNotInjOn
-  obtain ⟨x, hx, y, hy, hjxy, hxy⟩ := hNotInjOn
+  obtain ⟨x, _, y, _, hjxy, hxy⟩ := hNotInjOn
   exact not_injective_iff.mpr ⟨x, y, hjxy, hxy⟩
 
 /- Given an infinite minimal cover of a connected, second countable space
@@ -476,7 +447,7 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
     have hUn : ↑(U n) = V := by simp only [Equiv.symm_symm, Equiv.symm_apply_apply, U, n]
     have hnS : n ∉ S := by
       by_contra _
-      apply (notMem_of_mem_diff hVCS)
+      apply notMem_of_mem_diff hVCS
       simp_rw [← hUn, Ω, mem_image]
       use n
     have hVS : {n} ∪ S ∈ Csub := by
@@ -502,8 +473,8 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
     intro hmsC
     have hNotCsub := notMem_setOf_iff.mp hmsC
     push Not at hNotCsub
-    have hmS_NE : Nonempty ↑({m} ∪ S.val) := by
-      exact Nonempty.intro ⟨m, mem_union_left S.val <| mem_singleton m⟩
+    have hmS_NE : Nonempty ↑({m} ∪ S.val) :=
+      Nonempty.intro ⟨m, mem_union_left S.val <| mem_singleton m⟩
     have hmS_Fin : Finite ↑({m} ∪ S.val) := by
       refine finite_union.mpr ⟨finite_singleton m, ?_⟩
       exact (mem_setOf.mp <| Subtype.coe_prop S).2.1
@@ -513,8 +484,8 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
      i : ℕ → Csub so that each i n is built by adding a single element j n
      of the cover C to i (n - 1) -/
   let i : ℕ → Csub := fun n => Nat.iterate gSet n ⟨{0}, hU₀⟩
-  have hg_iterate : ∀ n : ℕ, i (n + 1) = gSet (i n) := by
-    exact fun n => iterate_succ_apply' gSet n ⟨{0}, hU₀⟩
+  have hg_iterate : ∀ n : ℕ, i (n + 1) = gSet (i n) :=
+    fun n => iterate_succ_apply' gSet n ⟨{0}, hU₀⟩
   have hiConn (n : ℕ) : IsConnected (⋃ s ∈ (i n).val, U s : Set X) := by
     obtain ⟨_, _, hC⟩ := mem_setOf.mp <| Subtype.coe_prop (i n)
     exact hC
@@ -528,8 +499,7 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
     by_cases h : n = 0 <;> simp only [j, h, ↓reduceIte]
     · rfl
     · nth_rewrite 1 [← show (n - 1) + 1 = n by exact Nat.succ_pred h]
-      rw [hg_iterate (n - 1)]
-      exact mem_union_left _ <| mem_singleton _
+      exact hg_iterate (n - 1) ▸ (mem_union_left _ <| mem_singleton _)
   have hj_notMem_i_pred {n : ℕ} : n ≠ 0 → j n ∉ (i (n - 1)).val := by
     intro hn
     apply notMem_of_mem_diff (s := (i n).val)
@@ -575,12 +545,10 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
     intro m n hjmn
     rcases Nat.lt_trichotomy m n with h | h | h
     · apply False.elim <| (hj_notMem_i_pred <| Nat.ne_zero_of_lt h) ?_
-      rw [← hjmn]
-      exact mem_of_subset_of_mem (hi_subset_of_lt h) (hj_mem_i m)
+      exact hjmn ▸ mem_of_subset_of_mem (hi_subset_of_lt h) (hj_mem_i m)
     · exact h
     · apply False.elim <| (hj_notMem_i_pred <| Nat.ne_zero_of_lt h) ?_
-      rw [hjmn]
-      exact mem_of_subset_of_mem (hi_subset_of_lt h) (hj_mem_i n)
+      exact hjmn ▸ mem_of_subset_of_mem (hi_subset_of_lt h) (hj_mem_i n)
   have hjSurjective : Surjective j := by
     by_contra! h
     let C' : Set (Set X) := Subtype.val '' (U '' (range j))
@@ -595,14 +563,10 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
         have : U k ∈ U '' (range j) := by rwa [← SetCoe.ext haVal]
         exact (Iff.not U.injective.mem_set_image).mpr hk this
     have hC'_sUnion_proper : ⋃₀ C' ≠ univ := hMinimal C' hC'_ssubset_C
-    have hC'_sUnion_open : IsOpen (⋃₀ C') := by
-      apply isOpen_sUnion
-      intro t ⟨⟨s, hsC⟩, _, hst⟩
-      rw [← hst]
-      exact hOpen s hsC
+    have hC'_sUnion_open : IsOpen (⋃₀ C') :=
+      isOpen_sUnion <| fun t ⟨⟨s, hsC⟩, _, hst⟩ => hst ▸ hOpen s hsC
     have hFrontier : (frontier (⋃₀ C')).Nonempty := by
-      apply nonempty_frontier_iff.mpr ⟨?_, hC'_sUnion_proper⟩
-      apply nonempty_sUnion.mpr
+      apply nonempty_frontier_iff.mpr ⟨nonempty_sUnion.mpr ?_, hC'_sUnion_proper⟩
       use (U (j 0)).val
       constructor
       · exact mem_image_of_mem Subtype.val <| mem_image_of_mem U <| mem_range_self 0
@@ -610,10 +574,7 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
     /- Since ⋃₀ C' has nonempty frontier, we can take a point x in that
        frontier and find a set Ω = U n ∈ C containing it; note that Ω ∉ C' -/
     obtain ⟨x, hx⟩ := nonempty_def.mp hFrontier
-    obtain ⟨Ω, hΩ, hxΩ⟩ : ∃ Ω ∈ C, x ∈ Ω := by
-      apply mem_sUnion.mp
-      rw [hC]
-      exact mem_univ x
+    obtain ⟨Ω, hΩ, hxΩ⟩ : ∃ Ω ∈ C, x ∈ Ω := mem_sUnion.mp <| hC ▸ mem_univ x
     let n : ℕ := U.symm ⟨Ω, hΩ⟩
     have hUn : (U n).val = Ω := by simp only [n, U.apply_symm_apply]
     have hnj : n ∉ range j := by
@@ -622,12 +583,9 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
       have hΩC' : Ω ∈ C' := by
         rw [← hUn, ← ha]
         apply mem_image_of_mem Subtype.val
-        apply mem_image_of_mem U
-        exact mem_range_self a
+        exact mem_image_of_mem U (mem_range_self a)
       have hxMem : x ∈ ⋃₀ C' := subset_sUnion_of_subset C' Ω (Subset.refl Ω) hΩC' hxΩ
-      have hx_notMem : x ∉ ⋃₀ C' := by
-        rw [hC'_sUnion_open.frontier_eq] at hx
-        exact notMem_of_mem_diff hx
+      have hx_notMem : x ∉ ⋃₀ C' := notMem_of_mem_diff <| hC'_sUnion_open.frontier_eq ▸ hx
       exact hx_notMem hxMem
     /- Now we find a set t = U (j μ) in C' that intersects Ω = U n -/
     have hΩC' : (Ω ∩ (⋃₀ C')).Nonempty := mem_closure_iff.mp
@@ -649,8 +607,7 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
       refine IsConnected.union ⟨y, hyΩ, ?_⟩ (hConn Ω hΩ) (hiConn k)
       simp only [mem_iUnion, exists_prop]
       refine ⟨j μ, ?_, by rwa [hμ, hUm]⟩
-      rw [hi_eq_image_j k]
-      exact mem_image_of_mem j <| mem_setOf.mpr hk
+      exact hi_eq_image_j k ▸ mem_image_of_mem j <| mem_setOf.mpr hk
     /- Now for every k ≥ μ we construct i (k + 1) by inserting j (k + 1)
        into i k, but we never insert n = U.symm Ω, so it must be the case
        that j (k + 1) < n for all k ≥ μ. -/
@@ -662,10 +619,8 @@ lemma connected_enumeration_of_minimal_open_cover [ConnectedSpace X]
       have hg_min' := hg_min (i (k - 1)) n hg
       have : n ∉ (i (k - 1)).val := by
         by_contra h
-        rw [hi_eq_image_j (k - 1)] at h
-        obtain ⟨l, _, hjl⟩ := h
-        rw [← hjl] at hnj
-        exact hnj (mem_range_self l)
+        obtain ⟨l, _, hjl⟩ := hi_eq_image_j (k - 1) ▸ h
+        exact (hjl ▸ hnj) (mem_range_self l)
       simp only [this, false_or, singleton_union, mem_insert_iff,
         iUnion_iUnion_eq_or_left, hUn] at hg_min'
       exact hg_min' <| hΩConn (k - 1) (Nat.le_sub_one_of_lt hk)
